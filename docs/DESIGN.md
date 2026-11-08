@@ -1,0 +1,122 @@
+# BarTap UI 设计规范 V1.0
+
+> 状态：正式锁定。后续新增页面、按钮、卡片、弹窗和设置项都必须遵循本文档，不再按页面另起一套风格。
+
+## 1. 设计语言
+
+- 视觉体系：Windows 11 Fluent Design / WinUI 3 视觉语言，Fluent 2 设计语言。
+- 技术架构：Rust + egui，不改为 C# + XAML。
+- Windows 接口：`windows-rs`。
+- 主题管理：自研 `ThemeManager`。
+- 默认主题：跟随 Windows。
+- 主题切换：实时生效，无需重启。
+
+BarTap 采用 WinUI 3 的视觉规范，而不是重写整个应用。这样保留现有功能与渲染架构，同时让设置页、悬浮岛、弹窗和输入框共享同一套颜色与控件规则。
+
+## 2. 主题模式
+
+| 模式 | 行为 |
+| --- | --- |
+| 跟随系统 | 读取 Windows `AppsUseLightTheme`，系统切换后自动更新 |
+| 浅色 | 始终使用 Light Token |
+| 深色 | 始终使用 Dark Token |
+
+所有窗口、弹窗、菜单、输入框、悬浮岛和自绘内容都必须响应同一份 Token。系统主题变化后，`ThemeManager` 在下一帧重新解析并刷新。
+
+## 3. 颜色 Token
+
+### 浅色
+
+| 角色 | 色值 |
+| --- | --- |
+| 主背景 `window_bg` | `#F3F3F3` |
+| 卡片背景 `card_bg` | `#FFFFFF` |
+| 次级背景 `secondary_bg` | `#F8F8F8` |
+| 主文字 `text` | `#1A1A1A` |
+| 次级文字 `text_secondary` | `#606060` |
+| 边框 `border` | `#E5E5E5` |
+| 强调色 `accent` | `#0067C0` |
+| 危险 `danger` | `#C42B1C` |
+| 成功 `success` | `#0F7B0F` |
+| 警告 `warning` | `#9D5D00` |
+
+### 深色
+
+| 角色 | 色值 |
+| --- | --- |
+| 主背景 `window_bg` | `#202020` |
+| 卡片背景 `card_bg` | `#2B2B2B` |
+| 次级背景 `secondary_bg` | `#323232` |
+| 主文字 `text` | `#FFFFFF` |
+| 次级文字 `text_secondary` | `#C5C5C5` |
+| 边框 `border` | `#454545` |
+| 强调色 `accent` | `#60CDFF` |
+| 危险 `danger` | `#FF99A4` |
+| 成功 `success` | `#6CCB5F` |
+| 警告 `warning` | `#FCE100` |
+
+控件状态：
+
+- 默认：`control_bg` + `border`
+- 悬停：`control_hover`
+- 按下：`control_pressed`
+- 禁用：`control_disabled` + `text_disabled`
+
+品牌色例外：AI 服务标识、微信/支付宝二维码说明等品牌色保留原色相；它们不是主题色。AI 账号不提供自定义颜色；额度环和进度条使用 Fluent 强调色，厂商身份由官方图标承担。
+
+## 4. 背景材质
+
+主题只决定颜色，材质只决定岛体背景表现：
+
+| 材质 | 行为 |
+| --- | --- |
+| 纯色 `Solid` | 使用当前主题的 `window_bg`，不透明 |
+| 毛玻璃 `Glass` | 使用系统模糊，主题色半透明叠加 |
+| 悬浮云 `Fluid` | 保留随封面换色与光晕，控件仍由 Fluent Token 控制 |
+
+旧配置迁移：
+
+- `classic`、`cream` → `solid`
+- `glass`、`glass_light`、`glass_dark` → `glass`
+- `fluid` → `fluid`
+
+旧皮肤键不会丢失，加载时自动映射。
+
+## 5. 控件与排版
+
+- 圆角：`4px`（小控件）、`8px`（按钮/输入框）、`12px`（卡片/弹窗）。
+- 间距：`4 / 8 / 12 / 16 / 24px`。
+- 字体：Segoe UI Variable（设计参考）；实际渲染使用 Segoe UI 静态字重，保证 egui 排版稳定。中文优先微软雅黑 UI。
+- 图标：统一线性图标体系。
+- 按钮：默认、悬停、按下、禁用四态。
+- 输入框：边框、焦点、选中态全部使用 Token。
+- 弹窗：背景、边框、阴影、文字与主主题一致。
+- 动画：轻量过渡，不做夸张效果。
+
+## 6. 实现规则
+
+1. 不新增页面级深浅色常量；优先使用 `settings_theme::current()` 的 Token。
+2. 设置页、邮件全文、更新弹窗、额度弹窗等所有 viewport 都必须应用同一份 Token。
+3. 悬浮岛内容按统一深色基准绘制，再由 `skin_paint` 投影到 Fluent Light/Dark；不得为浅色主题单独写一套页面。
+4. 新增颜色前先判断它属于主题角色、状态色还是品牌色。主题角色必须进 Token。
+5. 任何新窗口都要在首帧调用主题应用逻辑，避免深色背景上出现白色输入框。
+6. 系统主题切换、手动切换和重启恢复都必须经过同一套测试。
+
+## 7. 文件位置
+
+- `src/settings_theme.rs`：主题模式、Token、`ThemeManager`、系统主题读取与 egui Visuals。
+- `src/skin_paint.rs`：统一深色内容到 Fluent Light/Dark 的投影。
+- `src/model.rs`：主题偏好与背景材质的持久化。
+- `src/extras.rs`：设置页、通知与共享控件。
+- `src/app.rs`：悬浮岛主题应用与背景材质绘制。
+
+## 8. 验收清单
+
+- [ ] 浅色 / 深色 / 跟随系统三种模式可切换并持久化。
+- [ ] Windows 主题变化后，设置页、悬浮岛、邮件全文、更新弹窗同步更新。
+- [ ] 深色下没有白色输入框、白色卡片或不可读文字。
+- [ ] 浅色下没有黑底输入框、黑底菜单或低对比文字。
+- [ ] 纯色、毛玻璃、悬浮云三种材质下控件颜色一致。
+- [ ] 旧皮肤配置加载后自动迁移。
+- [ ] 品牌图标与专辑封面不被主题换色。
+- [ ] `cargo test --features record -- --test-threads=1` 通过。
