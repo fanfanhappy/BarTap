@@ -29,4 +29,5 @@ BarTap 1.0.0 是首个正式发布版本，使用 `bartap` / `bartap.exe` 作为
 ### 文档
 
 - README、英文 README、使用指南、隐私说明、开发指南与安全策略统一为 BarTap 体系。
+- 整理版权声明：`LICENSE` 保留 BarTap 版权，原始 MIT 版权移至 `THIRD_PARTY_NOTICES.txt`。
 - MIT LICENSE 与第三方许可声明保留在仓库中。

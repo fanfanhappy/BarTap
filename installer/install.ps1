@@ -1,4 +1,4 @@
-param([string]$SourceExecutable)
+﻿param([string]$SourceExecutable)
 if(-not $SourceExecutable){
     $packaged=Join-Path $PSScriptRoot '..\bartap.exe'
     $SourceExecutable=if(Test-Path -LiteralPath $packaged){$packaged}else{Join-Path $PSScriptRoot '..\target\release\bartap.exe'}

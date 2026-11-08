@@ -1,4 +1,4 @@
-# 使用独立目录和最小测试程序验证更新，不启动或替换日常使用的BarTap。
+﻿# 使用独立目录和最小测试程序验证更新，不启动或替换日常使用的BarTap。
 param([switch]$EncryptedCache)
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
@@ -22,6 +22,7 @@ try {
     $target = Join-Path $targetDir 'bartap.exe'
     $data = Join-Path $targetDir 'settings.json'
     Set-Content -LiteralPath $data -Value 'keep-user-data'
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     foreach ($case in @('success','inherited-shell','bad-hash','wrong-version','traversal')) {
         Remove-Item -LiteralPath (Join-Path $targetDir 'started.txt') -ErrorAction SilentlyContinue
@@ -69,3 +70,4 @@ try {
 } finally {
     $env:LOCALAPPDATA = $oldLocal
 }
+exit 0

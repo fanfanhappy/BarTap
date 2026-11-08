@@ -120,6 +120,4 @@ BarTap 目前是个人维护项目，不设公开的贡献流程。欢迎通过 
 
 ## 许可
 
-BarTap 的代码按 [MIT License](LICENSE) 发布。版权声明与许可全文见 [LICENSE](LICENSE)。
-
-第三方组件、字体、图标与素材的来源和许可见 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) 与 [依赖说明](docs/DEPENDENCIES.md)。
+BarTap 的代码按 [MIT License](LICENSE) 发布。BarTap 的版权声明与许可全文见 [LICENSE](LICENSE)；原始代码的 MIT 版权声明、第三方组件、字体、图标与素材的来源和许可见 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) 与 [依赖说明](docs/DEPENDENCIES.md)。

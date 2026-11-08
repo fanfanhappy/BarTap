@@ -1,6 +1,6 @@
 # 依赖与第三方许可
 
-BarTap 的代码按 MIT 发布，完整版权声明与许可全文见仓库根目录的 [LICENSE](../LICENSE)。第三方依赖、字体、图标及品牌标识遵循各自许可；MIT 不授予第三方商标权。完整归属及许可文本见 [THIRD_PARTY_NOTICES.txt](../THIRD_PARTY_NOTICES.txt)。
+BarTap 的代码按 MIT 发布，BarTap 版权声明与许可全文见仓库根目录的 [LICENSE](../LICENSE)。原始代码的 MIT 版权声明、第三方依赖、字体、图标及品牌标识遵循各自许可；MIT 不授予第三方商标权。完整归属及许可文本见 [THIRD_PARTY_NOTICES.txt](../THIRD_PARTY_NOTICES.txt)。
 
 ## 本地补丁
 

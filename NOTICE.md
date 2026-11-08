@@ -1,12 +1,8 @@
 # 许可与第三方说明 / License and Third-Party Notices
 
-BarTap 的代码按 MIT License 发布。完整版权声明与许可全文见仓库根目录的 [LICENSE](LICENSE)。
+BarTap 的代码按 MIT License 发布。BarTap 的版权声明与许可全文见仓库根目录的 [LICENSE](LICENSE)；原始代码的 MIT 版权声明、第三方组件、字体、图标与素材许可见 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) 与 [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)。
 
-第三方组件、字体、图标与素材遵循各自的许可，详见 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) 与 [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md)。
-
-BarTap is released under the MIT License. The complete copyright notice and license text are in [LICENSE](LICENSE).
-
-Third-party components, fonts, icons and assets remain under their respective licenses; see [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md).
+BarTap is released under the MIT License. The BarTap copyright notice and license text are in [LICENSE](LICENSE); the original code's MIT copyright notice and third-party component, font, icon and asset licenses are in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md).
 
 ## 第三方商标与图标 / Third-Party Trademarks and Icons
 

@@ -1,4 +1,4 @@
-param([Parameter(Mandatory=$true)][string]$NsisCompiler)
+﻿param([Parameter(Mandatory=$true)][string]$NsisCompiler)
 $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
 $id = 'BarTapSetupTest' + [Guid]::NewGuid().ToString('N')

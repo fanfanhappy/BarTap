@@ -1,4 +1,4 @@
-param([switch]$SkipBuild, [string]$Executable, [string]$NsisCompiler, [string]$OutputDirectory)
+﻿param([switch]$SkipBuild, [string]$Executable, [string]$NsisCompiler, [string]$OutputDirectory)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 Push-Location $projectRoot
@@ -7,7 +7,7 @@ try {
     # 发布版不嵌入构建机器的用户目录和项目路径：依赖源码路径换成中性前缀，PDB 只记文件名。
     # 用 CARGO_ENCODED_RUSTFLAGS（\x1f 分隔）避免路径里的空格被拆开；它会覆盖 .cargo/config.toml 的 rustflags，所以带上 crt-static。
     $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE '.cargo' }
-    $env:CARGO_ENCODED_RUSTFLAGS = @('-C', 'target-feature=+crt-static', "--remap-path-prefix=$cargoHome=cargo", "--remap-path-prefix=$projectRoot=bartap", '-C', 'link-arg=/PDBALTPATH:%_PDB%') -join [char]0x1f
+    $env:CARGO_ENCODED_RUSTFLAGS = @('-C', 'target-feature=+crt-static', "--remap-path-prefix=$cargoHome=cargo", "--remap-path-prefix=$env:USERPROFILE=user", "--remap-path-prefix=$projectRoot=bartap", '-C', 'link-arg=/PDBALTPATH:%_PDB%') -join [char]0x1f
     if (-not $SkipBuild) {
         $env:CARGO_BUILD_JOBS = '1'
         cargo +stable-x86_64-pc-windows-msvc build --locked --release --bin bartap --target x86_64-pc-windows-msvc

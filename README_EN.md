@@ -120,6 +120,4 @@ Remove account details, verification codes, cookies, credentials, private mail a
 
 ## License
 
-BarTap is released under the [MIT License](LICENSE). The copyright notice and full license text are in [LICENSE](LICENSE).
-
-Third-party components, fonts, icons and assets are documented in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md).
+BarTap is released under the [MIT License](LICENSE). The BarTap copyright notice and license text are in [LICENSE](LICENSE); the original code's MIT copyright notice and third-party component, font, icon and asset licenses are in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and [docs/DEPENDENCIES.md](docs/DEPENDENCIES.md).
