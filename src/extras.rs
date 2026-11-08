@@ -1,8 +1,14 @@
-//! 设置、通知队列与BarTap表情。
+//! 设置与通知队列。
 use crate::app::{App, Cmd, Phase, HUD_TRACK_W, HUD_TRACK_X, HUD_W, PAGE_NAMES};
 use crate::paint::{Card, H};
 use crate::theme::{self, size, W};
 use eframe::egui::{self, Color32, Rect};
+
+pub(crate) struct SettingsBackground {
+    path: String,
+    texture: egui::TextureHandle,
+    size: [usize; 2],
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AlertSource { Internal, Wechat, External(String) }
@@ -916,6 +922,97 @@ const SETTINGS_GROUPS: [(&str,usize,usize);8] = [
 ];
 
 impl App {
+    /// 设置窗口背景图只在路径变化时解码一次；失败时保留错误提示，避免每帧重试。
+    pub(crate) fn sync_settings_background(&mut self, ctx: &egui::Context) {
+        let path = self.settings.settings_background.clone();
+        if path.is_empty() {
+            self.settings_background = None;
+            self.settings_background_error = None;
+            self.settings_background_attempt = None;
+            return;
+        }
+        if self.settings_background_attempt.as_deref() == Some(path.as_str()) {
+            return;
+        }
+        self.settings_background_attempt = Some(path.clone());
+        self.settings_background = None;
+        let result = std::fs::read(&path)
+            .map_err(|_| "图片文件不可用，请重新选择".to_string())
+            .and_then(|bytes| {
+                image::load_from_memory(&bytes)
+                    .map_err(|_| "无法解码图片，请选择 PNG、JPEG 或 WebP".to_string())
+            })
+            .and_then(|image| {
+                let image = image.thumbnail(2048, 2048).to_rgba8();
+                let size = [image.width() as usize, image.height() as usize];
+                if size[0] == 0 || size[1] == 0 {
+                    return Err("图片尺寸无效".to_string());
+                }
+                let color = egui::ColorImage::from_rgba_unmultiplied(size, image.as_raw());
+                let texture = ctx.load_texture("settings-background", color, egui::TextureOptions::LINEAR);
+                Ok(SettingsBackground { path: path.clone(), texture, size })
+            });
+        match result {
+            Ok(background) => {
+                self.settings_background = Some(background);
+                self.settings_background_error = None;
+            }
+            Err(error) => self.settings_background_error = Some(error),
+        }
+    }
+
+    fn paint_settings_background(&self, ctx: &egui::Context) -> bool {
+        let Some(background) = &self.settings_background else { return false; };
+        let rect = ctx.screen_rect();
+        if rect.width() <= 1.0 || rect.height() <= 1.0 {
+            return false;
+        }
+        let [image_w, image_h] = background.size;
+        let image_aspect = image_w as f32 / image_h as f32;
+        let screen_aspect = rect.width() / rect.height();
+        let uv = if image_aspect > screen_aspect {
+            let visible = (screen_aspect / image_aspect).clamp(0.0, 1.0);
+            let left = (1.0 - visible) * 0.5;
+            egui::Rect::from_min_max(egui::pos2(left, 0.0), egui::pos2(left + visible, 1.0))
+        } else {
+            let visible = (image_aspect / screen_aspect).clamp(0.0, 1.0);
+            let top = (1.0 - visible) * 0.5;
+            egui::Rect::from_min_max(egui::pos2(0.0, top), egui::pos2(1.0, top + visible))
+        };
+        let painter = ctx.layer_painter(egui::LayerId::background());
+        painter.image(background.texture.id(), rect, uv, Color32::WHITE);
+        let tokens = self.theme.tokens();
+        let alpha = (self.settings.settings_background_dim.min(85) as f32 / 100.0).clamp(0.0, 0.9);
+        let overlay = Color32::from_rgba_unmultiplied(
+            tokens.window_bg.r(),
+            tokens.window_bg.g(),
+            tokens.window_bg.b(),
+            (alpha * 255.0).round() as u8,
+        );
+        painter.rect_filled(rect, 0.0, overlay);
+        true
+    }
+
+    #[cfg(windows)]
+    fn pick_settings_background(&mut self) {
+        match crate::system::pick_files_for("选择设置背景图片", false) {
+            Ok(files) => {
+                if let Some(path) = files.into_iter().next() {
+                    self.settings.settings_background = path.to_string_lossy().into_owned();
+                    self.settings_background = None;
+                    self.settings_background_error = None;
+                    self.settings_background_attempt = None;
+                }
+            }
+            Err(error) => self.settings_background_error = Some(format!("无法打开文件选择器：{}", error.code())),
+        }
+    }
+
+    #[cfg(not(windows))]
+    fn pick_settings_background(&mut self) {
+        self.settings_background_error = Some("当前系统不支持文件选择".into());
+    }
+
     pub fn settings_ui(&mut self,ctx:&egui::Context,autostart:bool){
         self.updates.poll(ctx);
         self.updates.dialog_ui(ctx,self.theme.tokens());
@@ -927,7 +1024,9 @@ impl App {
         ctx.show_viewport_immediate(id,egui::ViewportBuilder::default().with_title("BarTap设置").with_icon(theme::app_icon()).with_inner_size([690.0,560.0]).with_min_inner_size([600.0,450.0]).with_visible(false).with_active(false).with_window_level(egui::WindowLevel::Normal),|ctx,_|{
             self.theme.sync(self.settings.settings_theme,crate::settings_theme::system_dark(ctx));
             self.theme.apply(ctx);
+            self.sync_settings_background(ctx);
             let t=self.theme.tokens();
+            let panel_fill=if self.paint_settings_background(ctx){Color32::TRANSPARENT}else{t.window_bg};
             let dark=t.dark;
             ctx.send_viewport_cmd(egui::ViewportCommand::SetTheme(if dark{egui::SystemTheme::Dark}else{egui::SystemTheme::Light}));
             if self.settings.settings_theme==crate::settings_theme::SettingsTheme::System {
@@ -941,7 +1040,7 @@ impl App {
             }
             if ctx.input(|i|i.viewport().close_requested()){self.settings_open=false;}
             let before=format!("{:?}",self.settings);
-            egui::SidePanel::left("settings-sidebar").resizable(false).exact_width(180.0).frame(egui::Frame::new().fill(t.window_bg).stroke(egui::Stroke::new(1.0,t.border)).inner_margin(egui::Margin::symmetric(10,12))).show(ctx,|ui|{
+            egui::SidePanel::left("settings-sidebar").resizable(false).exact_width(180.0).frame(egui::Frame::new().fill(panel_fill).stroke(egui::Stroke::new(1.0,t.border)).inner_margin(egui::Margin::symmetric(10,12))).show(ctx,|ui|{
                 ui.add_space(5.0);
                 ui.label(egui::RichText::new("设置").size(11.0).color(t.text_secondary));
                 ui.add_space(7.0);
@@ -969,7 +1068,7 @@ impl App {
                     ui.add_space(3.0);
                 }
             });
-            egui::CentralPanel::default().frame(egui::Frame::new().fill(t.window_bg).inner_margin(egui::Margin::symmetric(22,16))).show(ctx,|ui|{
+            egui::CentralPanel::default().frame(egui::Frame::new().fill(panel_fill).inner_margin(egui::Margin::symmetric(22,16))).show(ctx,|ui|{
                 ui.spacing_mut().item_spacing=egui::vec2(8.0,5.0);
                 ui.spacing_mut().button_padding=egui::vec2(10.0,6.0);
                 ui.style_mut().text_styles.insert(egui::TextStyle::Small,egui::FontId::proportional(12.0));
@@ -1085,6 +1184,42 @@ impl App {
                             });
                             settings_hint(ui,"同时应用于设置页、悬浮岛、弹窗和所有页面；跟随系统时随 Windows 实时切换。");
                         });
+                        settings_label(ui,"设置页背景");
+                        let mut pick_background=false;
+                        settings_card(ui,|ui|{
+                            let has_background=!self.settings.settings_background.is_empty();
+                            let text_secondary=t.text_secondary;
+                            let warning=t.warning;
+                            ui.horizontal_wrapped(|ui|{
+                                if ui.button("选择图片").clicked(){pick_background=true;}
+                                if has_background && ui.button("清除").clicked(){
+                                    self.settings.settings_background.clear();
+                                    self.settings_background=None;
+                                    self.settings_background_attempt=None;
+                                    self.settings_background_error=None;
+                                }
+                                if has_background {
+                                    let name=std::path::Path::new(&self.settings.settings_background).file_name()
+                                        .map(|name|name.to_string_lossy().into_owned())
+                                        .unwrap_or_else(||self.settings.settings_background.clone());
+                                    ui.label(egui::RichText::new(name).size(11.0).color(text_secondary));
+                                }
+                            });
+                            if has_background {
+                                settings_control_row(ui,"遮罩",56.0,|ui|{
+                                    ui.spacing_mut().slider_width=180.0;
+                                    ui.add(egui::Slider::new(&mut self.settings.settings_background_dim,0..=85).suffix("%"))
+                                });
+                                if let Some(error)=&self.settings_background_error {
+                                    ui.add(egui::Label::new(egui::RichText::new(error).size(11.0).color(warning)).wrap());
+                                }else{
+                                    settings_hint(ui,"图片自动铺满设置窗口；遮罩越深，文字越清晰。");
+                                }
+                            }else{
+                                settings_hint(ui,"选择 PNG、JPEG 或 WebP 图片作为设置窗口背景。");
+                            }
+                        });
+                        if pick_background {self.pick_settings_background();}
                         settings_label(ui,"启动");
                         settings_card(ui,|ui|{
                             let mut a=autostart;

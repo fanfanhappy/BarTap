@@ -3548,6 +3548,32 @@ fn page_order_drag_applies_on_release_and_saves() {
 }
 
 #[test]
+fn settings_background_loads_and_is_persisted() {
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    let mut h=H::new();
+    let file=std::env::temp_dir().join(format!("bartap-settings-bg-{}.png",std::process::id()));
+    let mut rgba=vec![0u8;64*64*4];
+    for y in 0..64{for x in 0..64{let i=(y*64+x)*4;rgba[i]=x as u8*4;rgba[i+1]=y as u8*4;rgba[i+2]=180;rgba[i+3]=255;}}
+    image::save_buffer(&file,&rgba,64,64,image::ColorType::Rgba8).unwrap();
+    h.app.settings.settings_background=file.to_string_lossy().into_owned();
+    h.app.settings.settings_background_dim=70;
+    h.app.settings.save();
+    let loaded=crate::model::Settings::load();
+    assert_eq!(loaded.settings_background,h.app.settings.settings_background);
+    assert_eq!(loaded.settings_background_dim,70);
+    h.app.sync_settings_background(&h.ctx);
+    assert!(h.app.settings_background.is_some(),"有效图片应加载为纹理");
+    assert!(h.app.settings_background_error.is_none());
+    let missing=std::env::temp_dir().join(format!("bartap-settings-bg-missing-{}.png",std::process::id()));
+    h.app.settings.settings_background=missing.to_string_lossy().into_owned();
+    h.app.settings_background_attempt=None;
+    h.app.sync_settings_background(&h.ctx);
+    assert!(h.app.settings_background.is_none(),"失效图片应回退主题背景");
+    assert!(h.app.settings_background_error.is_some());
+    let _=std::fs::remove_file(file);
+}
+
+#[test]
 fn settings_theme_follows_system_and_applies_fluent_tokens() {
     use crate::settings_theme::SettingsTheme;
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
