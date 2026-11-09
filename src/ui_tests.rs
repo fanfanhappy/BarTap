@@ -630,13 +630,16 @@ fn minimal_mode_stays_a_line_with_music_and_after_media_changes(){
     h.media=crate::smtc::NowPlaying{title:"Track".into(),artist:"Artist".into(),playing:true,duration:120.0,..Default::default()};
     for _ in 0..90 {h.frame(vec![]);}
     assert!(h.region.height()<20.0,"播放音乐时仍应遵守极简开关");
-    assert!(h.hit.height()<=crate::app::BAR_H_MIN+0.1,"鼠标命中范围也应收回细线");
+    assert!(h.hit.height()>=14.0 && h.hit.height()<=18.0,"极简命中区应比视觉高度更大，便于悬停：{}",h.hit.height());
+    assert!(h.hit.width()>=crate::app::BAR_W_MIN+10.0,"极简命中区应向左右各扩出透明余量：{}",h.hit.width());
     h.media.title="Another Track".into();h.media.playing=false;
     for _ in 0..90 {h.frame(vec![]);}
     assert!(h.region.height()<20.0,"暂停或切歌不能覆盖极简开关");
     h.media=Default::default();
     for _ in 0..90 {h.frame(vec![]);}
     assert!(h.region.height()<20.0,"没有媒体时恢复用户选择的极简状态");
+    h.hover(Pos2::new(WIN_W/2.0,crate::app::MINIMAL_HIT_H-2.0),0.7);
+    assert!(h.app.open,"命中区下方 13px 内也应能展开岛");
 }
 
 #[test]
@@ -1205,19 +1208,19 @@ fn browser_minimal_preserves_preferences_and_restores_the_previous_mode(){
     h.media=crate::smtc::NowPlaying{title:"Track".into(),artist:"Artist".into(),position:7.0,duration:120.0,..Default::default()};
     h.app.set_lyrics("Track","Artist",120.0,crate::lyrics::parse_lrc("[00:05]当前歌词"));
     for _ in 0..90 {h.frame(vec![]);}
-    assert!(h.hit.height()<10.0,"浏览器顶部受遮挡时应收为细刘海，歌词不能撑大它");
+    assert!(h.hit.height()>=14.0,"浏览器顶部受遮挡时视觉应收为细刘海，但命中区仍要可用");
     assert!(!h.app.settings.minimal,"自动极简不能修改手动模式");
     let saved=crate::model::Settings::load();
     assert!(saved.browser_minimal && !saved.minimal,"应只持久化开关，保留原模式");
     h.browser_at_top=None;for _ in 0..30 {h.frame(vec![]);}
-    assert!(h.hit.height()<10.0,"打开BarTap设置或托盘时应保留浏览器避让状态");
+    assert!(h.hit.height()>=14.0,"打开BarTap设置或托盘时应保留浏览器避让状态");
     h.browser_at_top=Some(false);for _ in 0..90 {h.frame(vec![]);}
     assert!(!h.app.settings.minimal && h.hit.height()>20.0,"离开浏览器或还原窗口后应恢复");
     h.browser_at_top=Some(true);for _ in 0..90 {h.frame(vec![]);}
     h.app.settings.browser_minimal=false;for _ in 0..90 {h.frame(vec![]);}
     assert!(!h.app.settings.minimal && h.hit.height()>20.0,"关闭开关后应立即恢复");
     h.app.settings.island_lyrics=false;h.app.set_minimal(true);h.browser_at_top=Some(false);for _ in 0..90 {h.frame(vec![]);}
-    assert!(h.app.settings.minimal && h.hit.height()<10.0,"离开浏览器不能撤销手动极简");
+    assert!(h.app.settings.minimal && h.hit.height()>=14.0,"离开浏览器不能撤销手动极简");
 }
 
 #[test]
@@ -1228,7 +1231,7 @@ fn browser_minimal_closes_the_open_island_but_still_allows_deliberate_hover(){
     assert!(h.app.open);
     h.browser_at_top=Some(true);h.frame(vec![]);
     assert!(!h.app.open,"切到浏览器时不能继续保留展开状态遮挡标签栏");
-    assert!(!h.hit.contains(Pos2::new(WIN_W/2.0,12.0)),"收起动画期间也应让标签栏接收点击");
+    assert!(!h.hit.contains(Pos2::new(WIN_W/2.0,crate::app::MINIMAL_HIT_H+2.0)),"收起动画期间也应让标签栏接收点击");
     h.hover(Pos2::new(WIN_W/2.0,2.0),0.25);
     assert!(!h.app.open,"短暂碰到刘海不能误触");
     h.hover(Pos2::new(WIN_W/2.0,2.0),0.6);
@@ -1242,9 +1245,9 @@ fn minimal_hover_excludes_the_surrounding_browser_tabs() {
     h.app.settings.minimal=true;
     for _ in 0..90 {h.frame(vec![]);}
     for cursor in [
-        Pos2::new(WIN_W/2.0,crate::app::BAR_H_MIN+1.0),
-        Pos2::new(WIN_W/2.0+crate::app::BAR_W_MIN/2.0+2.0,2.0),
-        Pos2::new(WIN_W/2.0-crate::app::BAR_W_MIN/2.0-2.0,2.0),
+        Pos2::new(WIN_W/2.0,crate::app::MINIMAL_HIT_H+2.0),
+        Pos2::new(WIN_W/2.0+crate::app::BAR_W_MIN/2.0+crate::app::MINIMAL_HIT_PAD_X+2.0,2.0),
+        Pos2::new(WIN_W/2.0-crate::app::BAR_W_MIN/2.0-crate::app::MINIMAL_HIT_PAD_X-2.0,2.0),
     ] {
         assert!(!h.hit.contains(cursor),"刘海外的标签栏应接收鼠标操作");
         h.hover(cursor,1.0);
@@ -1261,7 +1264,7 @@ fn minimal_hover_requires_continuous_deliberate_contact() {
     let inside=Pos2::new(WIN_W/2.0,2.0);
     h.hover(inside,0.25);
     assert!(!h.app.open,"短暂经过极简刘海不得展开");
-    h.hover(Pos2::new(WIN_W/2.0,8.0),0.1);
+    h.hover(Pos2::new(WIN_W/2.0,crate::app::MINIMAL_HIT_H+2.0),0.1);
     h.hover(inside,0.25);
     assert!(!h.app.open,"移出刘海应重新计算停留时间");
     h.hover(inside,0.7);
@@ -1284,7 +1287,7 @@ fn minimal_hover_does_not_catch_tabs_during_collapse() {
     }
     assert!(!h.app.open);
     assert!(h.app.progress()>0.04,"检查收起动画仍在进行时的命中范围");
-    let tab=Pos2::new(WIN_W/2.0,12.0);
+    let tab=Pos2::new(WIN_W/2.0,crate::app::MINIMAL_HIT_H+2.0);
     assert!(!h.hit.contains(tab),"收起动画不得继续拦截标签栏");
     h.hover(tab,1.0);
     assert!(!h.app.open);

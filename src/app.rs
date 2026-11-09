@@ -32,6 +32,9 @@ pub(crate) const HUD_TRACK_X: f32 = 48.0;
 pub(crate) const HUD_TRACK_W: f32 = 150.0;
 pub const BAR_W_MIN: f32 = 44.0; // 极简小条
 pub const BAR_H_MIN: f32 = 4.5;
+/// 极简刘海：视觉保持 4.5px，命中区单独放大，避免用户难以悬停。
+pub const MINIMAL_HIT_H: f32 = 16.0;
+pub const MINIMAL_HIT_PAD_X: f32 = 6.0;
 pub const FLARE: f32 = 17.6; // 顶部外翻肩宽
 pub const FLARE_H: f32 = 16.0; // 外翻收敛高度
 pub const RAD: f32 = 33.0; // 底部圆角
@@ -1601,9 +1604,10 @@ impl App {
     fn hit_rect_base(&self, cx: f32, top: f32, p: f32) -> Rect {
         if self.effective_minimal() && !self.open {
             let (width,height)=self.base_size();
-            let width=self.w.pos.min(width);
-            let height=self.h.pos.min(height);
-            Rect::from_min_size(Pos2::new(cx-width/2.0,top),Vec2::new(width,height))
+            let visual_w=self.w.pos.min(width);
+            let hit_w=visual_w+MINIMAL_HIT_PAD_X*2.0;
+            let hit_h=height.max(MINIMAL_HIT_H);
+            Rect::from_min_size(Pos2::new(cx-hit_w/2.0,top),Vec2::new(hit_w,hit_h))
         } else if self.notice.is_some()&&!self.compact_notices()&&!self.open {
             let (w,h)=self.base_size();Rect::from_min_size(Pos2::new(cx-(w+8.0)/2.0,top),Vec2::new(w+8.0,h+6.0))
         } else if p > 0.04 || self.open {

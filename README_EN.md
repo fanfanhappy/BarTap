@@ -45,6 +45,7 @@ The interface follows the **Windows 11 Fluent Design / WinUI 3 visual language**
 - **Settings background**: choose a local PNG / JPEG / WebP image for the settings window and adjust a readability scrim.
 - **Settings sidebar icons**: unified Apple-style rounded gradient tiles with fine white line symbols.
 - **Direct resize**: expand the island and drag the bottom-right handle; double-click the handle to reset to 100%.
+- **Minimal hit area**: the visual line stays 4.5px high while a transparent hit area expands to 16px with 6px on each side.
 - **Readability first**: no white inputs on dark surfaces and no dark menus or low-contrast text on light surfaces.
 
 | Light | Dark |
