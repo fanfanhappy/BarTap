@@ -1019,10 +1019,10 @@ impl App {
                 for (name,start,end) in SETTINGS_GROUPS {
                     if start==9 {ui.add_space((ui.available_height()-38.0).max(0.0));}
                     let selected=(start..=end).contains(&self.settings_tab);
-                    let (rect,response)=ui.allocate_exact_size(egui::vec2(ui.available_width(),36.0),egui::Sense::click());
+                    let (rect,response)=ui.allocate_exact_size(egui::vec2(ui.available_width(),38.0),egui::Sense::click());
                     if response.clicked() && !selected{self.settings_tab=start;}
                     if selected || response.hovered(){
-                        ui.painter().rect_filled(rect,7.0,if selected{t.control_pressed}else{t.control_hover});
+                        ui.painter().rect_filled(rect,8.0,if selected{t.control_pressed}else{t.control_hover});
                     }
                     let icon=match start {
                         0=>egui::include_image!("../assets/settings-icons/system/general.svg"),
@@ -1034,9 +1034,9 @@ impl App {
                         6=>egui::include_image!("../assets/settings-icons/system/notifications.svg"),
                         _=>egui::include_image!("../assets/settings-icons/system/about.svg"),
                     };
-                    let icon_bg=egui::Rect::from_center_size(egui::pos2(rect.left()+21.0,rect.center().y),egui::vec2(25.0,25.0));
+                    let icon_bg=egui::Rect::from_center_size(egui::pos2(rect.left()+21.5,rect.center().y),egui::vec2(27.0,27.0));
                     egui::Image::new(icon).paint_at(ui,icon_bg);
-                    ui.painter().text(egui::pos2(rect.left()+40.0,rect.center().y),egui::Align2::LEFT_CENTER,name,egui::FontId::proportional(13.0),if selected{t.text}else{t.text_secondary});
+                    ui.painter().text(egui::pos2(rect.left()+43.0,rect.center().y),egui::Align2::LEFT_CENTER,name,egui::FontId::proportional(13.0),if selected{t.text}else{t.text_secondary});
                     ui.add_space(3.0);
                 }
             });
