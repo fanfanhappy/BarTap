@@ -50,7 +50,8 @@ impl App {
             egui::ViewportBuilder::default()
                 .with_title("BarTap 引导")
                 .with_icon(crate::theme::app_icon())
-                .with_inner_size([640.0, 540.0])
+                .with_inner_size([640.0, 600.0])
+                .with_position(egui::pos2(533.0, 270.0))
                 .with_resizable(false)
                 .with_decorations(false)
                 .with_active(true)
@@ -100,7 +101,6 @@ impl App {
                         }
                         let content = full.shrink2(Vec2::new(38.0, 24.0));
                         ui.scope_builder(egui::UiBuilder::new().max_rect(content), |ui| {
-                            ui.set_opacity(alpha);
                             ui.add_space(6.0 + (1.0 - alpha) * 5.0);
                             ui.horizontal(|ui| {
                                 ui.label(RichText::new("BarTap").size(22.0).strong().color(t.text));
