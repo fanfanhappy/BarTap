@@ -1,1 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#FF8A30"/><stop offset="1" stop-color="#FF8A30" stop-opacity=".88"/></linearGradient></defs><rect x=".5" y=".5" width="31" height="31" rx="8" fill="url(#bg)"/><rect x="1" y="1" width="30" height="30" rx="7.5" fill="none" stroke="white" stroke-opacity=".12"/><g transform="translate(4 4)" fill="white"><rect x="9" y="1" width="6" height="2.8" rx="1.1"/><rect x="11" y="3" width="2" height="2"/><circle cx="12" cy="13" r="8.6"/><path d="M12 7.4v5.8l3.6 2.2" fill="none" stroke="#FF8A30" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+    <stop stop-color="#FFC15A"/>
+    <stop offset="1" stop-color="#FF9500"/>
+  </linearGradient>
+</defs>
+<path d="M8 1.5C4.4 1.5 1.5 4.4 1.5 8v16C1.5 27.6 4.4 30.5 8 30.5h16c3.6 0 6.5-2.9 6.5-6.5V8c0-3.6-2.9-6.5-6.5-6.5H8Z" fill="url(#bg)"/>
+<path d="M8 1.5C4.4 1.5 1.5 4.4 1.5 8v16C1.5 27.6 4.4 30.5 8 30.5h16c3.6 0 6.5-2.9 6.5-6.5V8c0-3.6-2.9-6.5-6.5-6.5H8Z" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width=".8"/>
+<path d="M8 2.3C4.8 2.3 2.3 4.8 2.3 8" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="1.1" stroke-linecap="round"/>
+<g fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+
+      <circle cx="16" cy="17" r="7.2"/>
+      <path d="M16 13.1v4.4l2.7 1.7"/>
+      <path d="M12.8 6.8h6.4"/>
+    
+</g>
+</svg>

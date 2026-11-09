@@ -1,1 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#23C575"/><stop offset="1" stop-color="#23C575" stop-opacity=".88"/></linearGradient></defs><rect x=".5" y=".5" width="31" height="31" rx="8" fill="url(#bg)"/><rect x="1" y="1" width="30" height="30" rx="7.5" fill="none" stroke="white" stroke-opacity=".12"/><g transform="translate(4 4)" fill="white"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="m8 11 2.7 2.7 5.5-5.5M8 17h8" fill="none" stroke="#23C575" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+    <stop stop-color="#43D96B"/>
+    <stop offset="1" stop-color="#248A3D"/>
+  </linearGradient>
+</defs>
+<path d="M8 1.5C4.4 1.5 1.5 4.4 1.5 8v16C1.5 27.6 4.4 30.5 8 30.5h16c3.6 0 6.5-2.9 6.5-6.5V8c0-3.6-2.9-6.5-6.5-6.5H8Z" fill="url(#bg)"/>
+<path d="M8 1.5C4.4 1.5 1.5 4.4 1.5 8v16C1.5 27.6 4.4 30.5 8 30.5h16c3.6 0 6.5-2.9 6.5-6.5V8c0-3.6-2.9-6.5-6.5-6.5H8Z" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width=".8"/>
+<path d="M8 2.3C4.8 2.3 2.3 4.8 2.3 8" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="1.1" stroke-linecap="round"/>
+<g fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+
+      <rect x="7" y="6.5" width="18" height="19" rx="4"/>
+      <path d="M11.5 12.3l1.7 1.7 3.2-3.4"/>
+      <path d="M18.3 12.5h3.8"/>
+      <path d="M11.5 18.4l1.7 1.7 3.2-3.4"/>
+      <path d="M18.3 18.6h3.8"/>
+    
+</g>
+</svg>
