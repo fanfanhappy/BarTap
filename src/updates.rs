@@ -317,7 +317,8 @@ fn download(release: &Release, tx: &mpsc::Sender<Event>, cancel: &AtomicBool) ->
         let mut input = response.into_reader();
         let mut output = std::fs::File::create(work.join("update.zip")).map_err(|_| "无法保存更新包")?;
         transfer(&mut input, &mut output, package, cancel, |progress| { let _ = tx.send(Event::Progress(progress)); })?;
-        std::fs::write(work.join("apply.ps1"), concat!("\u{feff}", include_str!("../installer/update.ps1"))).map_err(|_| "无法准备更新程序")?;
+        let script = include_str!("../installer/update.ps1").trim_start_matches('\u{feff}');
+        std::fs::write(work.join("apply.ps1"), format!("\u{feff}{script}")).map_err(|_| "无法准备更新程序")?;
         std::fs::write(work.join("version.txt"), release.version.trim_start_matches('v')).map_err(|_| "无法保存更新信息")?;
         std::fs::write(work.join("hash.txt"), &package.hash).map_err(|_| "无法保存校验信息")?;
         if cancel.load(Ordering::Relaxed) { return Err("下载已取消".into()); }
@@ -354,8 +355,8 @@ fn launch_installer(work: &std::path::Path) -> Result<(), String> {
         .arg(work.join("apply.ps1")).arg("-WorkPath").arg(work).arg("-TargetExe").arg(target)
         .arg("-ParentProcessId").arg(std::process::id().to_string()).creation_flags(0x08000000)
         .spawn().map_err(|_| "无法启动更新程序，请通过浏览器下载安装")?;
-    // 脚本先确认缓存和安装目录可用，再允许主程序退出。
-    for _ in 0..100 {
+    // 脚本先确认缓存和安装目录可用，再允许主程序退出；慢盘/杀毒扫描时留足 30 秒。
+    for _ in 0..600 {
         if work.join("ready").exists() { return Ok(()); }
         if child.try_wait().ok().flatten().is_some() { break; }
         std::thread::sleep(Duration::from_millis(50));
@@ -608,6 +609,15 @@ mod tests {
         }
         if let Some(old) = old { std::env::set_var("BARTAP_DATA_DIR", old); }
         else { std::env::remove_var("BARTAP_DATA_DIR"); }
+    }
+
+    #[test]
+    fn embedded_update_script_has_exactly_one_bom() {
+        let source = include_str!("../installer/update.ps1").trim_start_matches('\u{feff}');
+        let script = format!("\u{feff}{source}");
+        let bytes = script.as_bytes();
+        assert_eq!(&bytes[..3], &[0xEF, 0xBB, 0xBF]);
+        assert_ne!(&bytes[3..6], &[0xEF, 0xBB, 0xBF], "脚本不能有两个 BOM");
     }
 }
 
