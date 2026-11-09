@@ -170,7 +170,7 @@ impl Dock {
 /// 岛体大小（百分比）的范围与步进。
 pub const ISLAND_SIZE_MIN: u32 = 80;
 pub const ISLAND_SIZE_MAX: u32 = 140;
-pub const ISLAND_SIZE_STEP: u32 = 5;
+pub const ISLAND_SIZE_STEP: u32 = 1;
 /// 水平位置：-100 = 最左，0 = 居中，100 = 最右（按可移动范围的百分比）。
 pub const ISLAND_OFFSET_MAX: i32 = 100;
 
@@ -664,8 +664,8 @@ mod tests {
         assert_eq!(island_size_value(100), 100);
         assert_eq!(island_size_value(10), ISLAND_SIZE_MIN);
         assert_eq!(island_size_value(999), ISLAND_SIZE_MAX);
-        assert_eq!(island_size_value(113), 115);
-        assert_eq!(island_size_value(112), 110);
+        assert_eq!(island_size_value(113), 113);
+        assert_eq!(island_size_value(112), 112);
         for skin in Skin::ALL { assert_eq!(Skin::parse(skin.key()), skin); }
         assert_eq!(Skin::parse("unknown"), Skin::Solid);
         assert_eq!(Skin::parse("classic"), Skin::Solid, "旧版经典迁移为纯色");

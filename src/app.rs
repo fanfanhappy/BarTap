@@ -1570,7 +1570,7 @@ impl App {
                 }
             }
         } else {self.wheel_delta=0.0;}
-        let want = (inside && !self.hover_lock && (self.compact_notices()||self.notice.is_none()||self.open)) || self.open && on_notice || (self.open && self.t<self.forced_open_until) || self.drag_hot || (self.is_editing() && self.open);
+        let want = (inside && !self.hover_lock && (self.compact_notices()||self.notice.is_none()||self.open)) || self.open && on_notice || (self.open && self.t<self.forced_open_until) || self.drag_hot || (self.is_editing() && self.open) || self.island_resize_start.is_some();
         self.morph(want, inside, env.t, dt);
 
         // ---------- 绘制 ----------
@@ -2270,6 +2270,14 @@ impl App {
         if reveal>0.004 {self.shared_header(&base.faded(reveal),base.origin.x+PW/2.0,1.0,reveal,env);}
     }
 
+    fn resize_pointer(ui:&egui::Ui,response:&egui::Response)->Option<Pos2> {
+        #[cfg(all(windows,not(test)))]
+        if let Some((x,y))=crate::native::cursor_position() {
+            return Some(Pos2::new(x as f32,y as f32));
+        }
+        response.interact_pointer_pos().or_else(||ui.ctx().pointer_interact_pos())
+    }
+
     fn island_resize_handle(&mut self, ui:&egui::Ui, panel:Rect) {
         let center=Pos2::new(panel.right()-20.0,panel.bottom()-18.0);
         let rect=Rect::from_center_size(center,Vec2::splat(22.0));
@@ -2285,15 +2293,18 @@ impl App {
         }
         if response.drag_started() {
             self.island_resize_start=Some(crate::model::island_size_value(self.settings.island_size));
-            self.island_resize_origin=response.interact_pointer_pos();
+            self.island_resize_origin=Self::resize_pointer(ui,&response);
             self.island_resize_draft=self.island_resize_start.unwrap_or(100);
         }
         if response.dragged() {
             if let (Some(start),Some(origin))=(self.island_resize_start,self.island_resize_origin) {
-                if let Some(point)=ui.ctx().pointer_interact_pos() {
+                if let Some(point)=Self::resize_pointer(ui,&response) {
                     let delta=point-origin;
                     let raw=start as f32+(delta.x+delta.y)*0.45;
                     self.island_resize_draft=crate::model::island_size_value(raw.round().clamp(crate::model::ISLAND_SIZE_MIN as f32,crate::model::ISLAND_SIZE_MAX as f32) as u32);
+                    if self.settings.island_size!=self.island_resize_draft {
+                        self.settings.island_size=self.island_resize_draft;
+                    }
                 }
             }
         }

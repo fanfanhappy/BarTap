@@ -3566,6 +3566,8 @@ fn island_size_can_be_changed_by_dragging_the_corner(){
     }
     let end=grip+egui::vec2(40.0,20.0);
     h.cursor=Some(end);
+    h.frame(vec![egui::Event::PointerMoved(end)]);
+    assert!(h.app.settings.island_size>start,"拖动过程中应实时更新大小，实际 {} -> {}",start,h.app.settings.island_size);
     h.frame(vec![egui::Event::PointerButton{pos:end,button:egui::PointerButton::Primary,pressed:false,modifiers:Default::default()}]);
     assert!(h.app.settings.island_size>start,"拖动右下角应增大岛体，实际 {} -> {}",start,h.app.settings.island_size);
     assert_eq!(crate::model::Settings::load().island_size,h.app.settings.island_size,"松开后应保存大小");

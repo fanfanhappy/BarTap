@@ -43,6 +43,13 @@ fn inside_hit(x: i32, y: i32) -> bool {
     hit().lock().unwrap_or_else(|e|e.into_inner()).iter().any(|&(l,t,r,b)|x>=l&&x<r&&y>=t&&y<b)
 }
 
+/// 屏幕物理坐标；缩放窗口时仍能稳定追踪拖动距离。
+pub fn cursor_position() -> Option<(i32, i32)> {
+    let mut point = POINT::default();
+    unsafe { GetCursorPos(&mut point).ok()? };
+    Some((point.x, point.y))
+}
+
 fn file_drag_region(region:(i32,i32,i32,i32),zone:Option<(i32,i32,i32,i32)>,capture:bool)->(i32,i32,i32,i32){
     match zone.filter(|_|capture) {
         Some(zone)=>(region.0.min(zone.0),region.1.min(zone.1),region.2.max(zone.2),region.3.max(zone.3)),
