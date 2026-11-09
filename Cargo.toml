@@ -1,6 +1,6 @@
 [package]
 name = "bartap"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 license = "MIT"
 description = "BarTap：Windows 顶部的 Fluent 桌面信息岛"
