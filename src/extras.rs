@@ -1215,7 +1215,6 @@ impl App {
                                 self.settings.glass_blur=blur;
                             }
                             ui.separator();
-                            settings_hint(ui,"展开岛后拖动右下角手柄调整大小，双击手柄恢复 100%。");
                             settings_hint(ui,"文字和图标按实际像素重新绘制，放大后依旧清晰；颜色由当前 Light / Dark 主题统一决定。");
                         });
                         settings_label(ui,"岛体显示");

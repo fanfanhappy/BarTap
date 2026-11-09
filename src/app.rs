@@ -2281,8 +2281,7 @@ impl App {
     fn island_resize_handle(&mut self, ui:&egui::Ui, panel:Rect) {
         let center=Pos2::new(panel.right()-20.0,panel.bottom()-18.0);
         let rect=Rect::from_center_size(center,Vec2::splat(22.0));
-        let response=ui.interact(rect,ui.id().with("island-resize"),egui::Sense::click_and_drag())
-            .on_hover_text("拖动调整大小 · 双击恢复 100%");
+        let response=ui.interact(rect,ui.id().with("island-resize"),egui::Sense::click_and_drag());
         let hot=response.hovered()||response.dragged();
         if hot {ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeNwSe);}
         let color=if hot{theme::WHITE}else{theme::GRAY};
