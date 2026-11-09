@@ -1,6 +1,6 @@
 [package]
 name = "bartap"
-version = "1.0.4"
+version = "1.1.0"
 edition = "2021"
 license = "MIT"
 description = "BarTap：Windows 顶部的 Fluent 桌面信息岛"
@@ -93,6 +93,8 @@ windows = { version = "0.58", features = [
   "Win32_Devices_Properties",
   "Win32_Devices_Bluetooth",
   "Devices_Bluetooth", "Devices_Enumeration",
+  "Win32_NetworkManagement_IpHelper",
+  "Win32_NetworkManagement_Ndis",
 ] }
 # v0.5.5 邮件：IMAP 走系统 TLS，凭据进 Windows 凭据管理器。
 imap = "2.4"

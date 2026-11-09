@@ -49,7 +49,7 @@ fn pill_shadow(painter:&egui::Painter,rect:Rect,radius:f32,strength:f32){
         painter.rect_filled(r,radius+grow*0.8,Color32::from_black_alpha((255.0*a*strength) as u8));
     }
 }
-pub(crate) const PAGE_NAMES: [&str; 8] = ["音乐", "专注", "", "置物架", "待办", "邮箱", "AI 额度", "日程"];
+pub(crate) const PAGE_NAMES: [&str; 8] = ["音乐", "专注", "性能", "置物架", "待办", "邮箱", "AI 额度", "日程"];
 
 // ---------- 动效参数 ----------
 /// 悬停意图缓冲：光标停留这么久才真正展开（期间药丸轻微胀大作为反馈），防误触。
@@ -648,6 +648,7 @@ pub struct App {
     island_resize_start:Option<u32>,
     island_resize_origin:Option<Pos2>,
     island_resize_draft:u32,
+    pub(crate) perf:crate::perf::Monitor,
     pub wechat_status:String,
     pub(crate) notification_apps:model::NotificationApps,
     pub(crate) subpage:Option<usize>,
@@ -765,7 +766,7 @@ impl App {
             media_anchor: (String::new(), 0.0, 0.0, false),
             media: NowPlaying::default(),
             music_artwork: None,
-            forced_open_until:0.0, settings_open:false, displays:Vec::new(), browser_at_top:false, browser_minimal_active:false, glass_tint:0.0, fluid:Default::default(), fluid_origin:Pos2::ZERO, fluid_art:None, fluid_title:String::new(), screen:None, settings_focus_requested:false, settings_tab:0, settings_background:None, settings_background_error:None, settings_background_attempt:None, island_resize_start:None, island_resize_origin:None, island_resize_draft:100, wechat_status:String::new(), notification_apps:model::NotificationApps::load(), subpage:None, task_dialog:None,
+            forced_open_until:0.0, settings_open:false, displays:Vec::new(), browser_at_top:false, browser_minimal_active:false, glass_tint:0.0, fluid:Default::default(), fluid_origin:Pos2::ZERO, fluid_art:None, fluid_title:String::new(), screen:None, settings_focus_requested:false, settings_tab:0, settings_background:None, settings_background_error:None, settings_background_attempt:None, island_resize_start:None, island_resize_origin:None, island_resize_draft:100, perf:crate::perf::Monitor::new(), wechat_status:String::new(), notification_apps:model::NotificationApps::load(), subpage:None, task_dialog:None,
             listener_status: "尚未连接".into(),
             notification_bell_until: 0.0, notification_bell_at: -10.0, notice: None, hud_notice: None, hud_alpha: 0.0, notice_width:Spring::new(0.0,CLOSE.0,CLOSE.1), notice_details:false, pending_messengers:Vec::new(), messenger_scroll:0.0, alerts: Default::default(), history: Default::default(), pending: vec![],
             todo_first: 0,
@@ -1209,10 +1210,8 @@ impl App {
     }
 
     pub fn show_page(&mut self,page:usize) {
-        // 第 2 页（饮水）已移除，保留编号但不再跳转。
-        if page==2 { return; }
         if !self.settings.visible_pages[page] {
-            self.settings_tab=[1,2,2,5,4,7,11,8][page];
+            self.settings_tab=[1,2,10,5,4,7,11,8][page];
             self.open_settings();
             return;
         }
@@ -1243,8 +1242,6 @@ impl App {
     }
 
     pub(crate) fn set_page_visible(&mut self,page:usize,visible:bool) {
-        // 饮水页已移除，保留槽位但永不启用。
-        if page==2 {self.settings.visible_pages[2]=false;return;}
         if !visible && self.settings.visible_pages.iter().filter(|enabled|**enabled).count()==1
             && self.settings.visible_pages[page] { return; }
         self.settings.visible_pages[page]=visible;
@@ -1275,7 +1272,7 @@ impl App {
 
     /// 带过渡地切到某页。`dir` > 0 表示内容从右侧进入。
     pub(crate) fn go(&mut self, page: usize, dir: f32) {
-        if page==2 || page == self.page || !self.settings.visible_pages[page] { return; }
+        if page == self.page || !self.settings.visible_pages[page] { return; }
         self.subpage=None;
         // 连点：上一段过渡还没结束时，以当前页为起点重新开始，位移速度保留。
         self.page_from = self.page;
@@ -1420,6 +1417,8 @@ impl App {
             None => 0.0,
         };
         let elapsed = self.last_t.map(|at| (env.t - at).max(0.0) as f32).unwrap_or(0.0);
+        self.perf.set_active(self.open && self.page == 2);
+        self.perf.poll();
         self.last_t = Some(env.t);
         self.t = env.t;
         self.quota_tick();
@@ -1798,7 +1797,7 @@ impl App {
             || self.notice.as_ref().is_some_and(|notice|notice.meeting.is_some());
         let animating=transitioning || ambient;
         // 交互形变保持 60 帧，媒体 30 帧；静态界面每秒核对提醒。
-        let repaint_after=std::time::Duration::from_secs_f64(if transitioning{1.0/60.0}else if ambient{1.0/30.0}else{1.0});
+        let repaint_after=if self.open && self.page==2 {std::time::Duration::from_millis(250)} else {std::time::Duration::from_secs_f64(if transitioning{1.0/60.0}else if ambient{1.0/30.0}else{1.0})};
         cmds.append(&mut self.pending);
         FrameOut {
             region: rel(floating_toast.into_iter().chain(self.shelf_menu_rect.map(|r|r.union(r + ctx.style().visuals.popup_shadow.margin()).expand(1.0 / ctx.pixels_per_point()))).fold(region,Rect::union).intersect(ui.max_rect())),
@@ -2367,6 +2366,7 @@ impl App {
             0 | CALENDAR_PAGE => return,
             1 => ("番茄", "专注", theme::RED_TOP),
             // 置物架的标题就是「置物架 | 剪贴板」分栏，由页面自己画。
+            2 => ("性能", "", theme::WHITE),
             3 => return,
             4 => ("待办", "清单", theme::GREEN),
             5 => ("邮箱", "", theme::CYAN),
@@ -2422,6 +2422,7 @@ impl App {
         match page {
             0 => self.page_music(c, env, cmds),
             1 => self.page_focus(c, env),
+            2 => self.page_perf(c),
             3 => self.page_shelf(c, env, cmds),
             4 => self.page_todo(c, env, cmds),
             5 => self.page_mail(c, env, cmds),

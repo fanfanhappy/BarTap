@@ -1344,7 +1344,7 @@ fn arrows_and_dots_switch_pages() {
     h.click(H::local(398.0, 68.0));
     h.hover(H::local(300.0, 60.0), 0.8);
     h.click(H::local(398.0, 68.0));
-    assert_eq!(h.app.page, 3);
+    assert_eq!(h.app.page, 2);
 }
 
 #[test]
@@ -1353,7 +1353,7 @@ fn wheel_navigation_reaches_every_page_in_both_directions(){
     h.app.shelf.items.clear();h.app.todos.items.clear();
     h.hover(Pos2::new(WIN_W/2.0,12.0),1.0);
     h.hover(H::local(210.0,18.0),0.3);
-    for (delta,pages) in [(-40.0,[1,3,4,5,6,7,0]),(40.0,[7,6,5,4,3,1,0])] {
+    for (delta,pages) in [(-40.0,[1,2,3,4,5,6,7,0]),(40.0,[7,6,5,4,3,2,1,0])] {
         for page in pages {
             h.wheel(delta);
             assert_eq!(h.app.page,page,"滚轮翻页不能被空的置物架或待办卡住");
@@ -1405,7 +1405,7 @@ fn wheel_handles_small_deltas_without_skipping_pages_on_bursts(){
     assert_eq!(h.app.page,1,"高精度滚轮的小幅输入应能累积成一次翻页");
     h.hover(H::local(210.0,18.0),0.3);
     for _ in 0..5 {h.wheel(-40.0);}
-    assert_eq!(h.app.page,3,"一次连续滚动不能瞬间跳过多个页面");
+    assert_eq!(h.app.page,2,"一次连续滚动不能瞬间跳过多个页面");
 }
 
 #[test]
@@ -1560,7 +1560,7 @@ fn quota_accounts_switch_independently_and_hide_with_the_page() {
 fn page_visibility_is_saved_and_sets_the_starting_page() {
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
     let mut h=H::new();
-    assert_eq!(h.app.settings.visible_pages,[true,true,false,true,true,true,true,true]);
+    assert_eq!(h.app.settings.visible_pages,[true,true,true,true,true,true,true,true]);
     assert!(h.app.settings.show_battery);
     h.app.settings.show_battery=false;
     h.app.set_page_visible(0,false);
@@ -1568,7 +1568,7 @@ fn page_visibility_is_saved_and_sets_the_starting_page() {
     h.app.settings.save();
     let settings=crate::model::Settings::load();
     assert!(!settings.show_battery);
-    assert_eq!(settings.visible_pages,[false,true,false,false,true,true,true,true]);
+    assert_eq!(settings.visible_pages,[false,true,true,false,true,true,true,true]);
     let restarted=App::new(&h.ctx,Options{fetch_lyrics:false});
     assert_eq!(restarted.page(),1);
     assert_eq!(restarted.settings.visible_pages,settings.visible_pages);
@@ -1578,9 +1578,9 @@ fn page_visibility_is_saved_and_sets_the_starting_page() {
     std::fs::write(crate::model::config_dir().join("settings.txt"),"visible_pages=1000000\n").unwrap();
     assert_eq!(crate::model::Settings::load().visible_pages,[true,false,false,false,false,false,false,true],"旧版页面开关应保留，并开启新增的日程页");
     std::fs::write(crate::model::config_dir().join("settings.txt"),"visible_pages=00100000\n").unwrap();
-    assert_eq!(crate::model::Settings::load().visible_pages,[true,false,false,false,false,false,false,false],"只启用了已移除页面时必须回退到音乐页");
+    assert_eq!(crate::model::Settings::load().visible_pages,[false,false,true,false,false,false,false,false],"只启用了性能页时应保留性能页");
     std::fs::write(crate::model::config_dir().join("settings.txt"),"visible_pages=invalid\n").unwrap();
-    assert_eq!(crate::model::Settings::load().visible_pages,[true,true,false,true,true,true,true,true]);
+    assert_eq!(crate::model::Settings::load().visible_pages,[true,true,true,true,true,true,true,true]);
 }
 
 #[test]
@@ -1610,7 +1610,7 @@ fn battery_module_hides_power_in_collapsed_and_expanded_headers() {
 fn page_visibility_skips_hidden_pages_in_every_navigation_control() {
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
     let mut h=H::new();
-    for page in [1,3,4,6,7] {h.app.set_page_visible(page,false);}
+    for page in [1,2,3,4,6,7] {h.app.set_page_visible(page,false);}
     h.hover(Pos2::new(WIN_W/2.0,12.0),1.0);
     h.click(H::local(398.0,68.0));assert_eq!(h.app.page,5);
     h.hover(H::local(300.0,60.0),0.7);
@@ -1638,11 +1638,12 @@ fn page_visibility_moves_away_from_hidden_page_and_keeps_one_page() {
     h.app.set_page_visible(4,false);
     assert_eq!(h.app.page,0);
     assert!(!h.app.is_editing());
-    for page in [0,1,3,5,6,7] {h.app.set_page_visible(page,false);}
+    for page in [0,1,2,3,5,6,7] {h.app.set_page_visible(page,false);}
     assert_eq!(h.app.page,7);
     assert_eq!(h.app.settings.visible_pages.iter().filter(|enabled|**enabled).count(),1);
     h.app.set_page_visible(2,true);
-    assert!(!h.app.settings.visible_pages[2],"已移除的页面不能被重新启用");
+    assert!(h.app.settings.visible_pages[2],"性能页应允许重新启用");
+    h.app.set_page_visible(2,false);
     h.hover(Pos2::new(WIN_W/2.0,12.0),1.0);
     h.click(H::local(398.0,68.0));
     assert_eq!(h.app.page,7,"只有一个页面时导航不移动");
@@ -3500,17 +3501,17 @@ fn page_order_persists_and_controls_navigation() {
     assert_eq!(settings.page_order,[5,2,0,1,3,4,6,7]);
     let restarted=App::new(&h.ctx,Options{fetch_lyrics:false});
     assert_eq!(restarted.page(),5);
-    for page in [1,3,4,6,7] {h.app.set_page_visible(page,false);}
+    for page in [1,2,3,4,6,7] {h.app.set_page_visible(page,false);}
     h.hover(Pos2::new(WIN_W/2.0,12.0),1.0);
     for expected in [5,0,5] {
         h.click(H::local(398.0,68.0));
-        assert_eq!(h.app.page,expected,"第 2 页已移除，导航应跳过它");
+        assert_eq!(h.app.page,expected,"隐藏第 2 页时导航应跳过它");
         h.hover(H::local(300.0,60.0),0.7);
     }
     h.click(H::local(21.0,68.0));
     assert_eq!(h.app.page,0);
     h.app.set_page_visible(2,true);
-    assert!(!h.app.settings.visible_pages[2]);
+    assert!(h.app.settings.visible_pages[2]);
     assert_eq!(h.app.page,0);
     for invalid in ["0,0,1,2,3,4,5,6","8,1,2,3,4,5,6,7","0,1","invalid"] {
         std::fs::write(crate::model::config_dir().join("settings.txt"),format!("page_order={invalid}\n")).unwrap();
@@ -3543,8 +3544,20 @@ fn page_order_drag_applies_on_release_and_saves() {
     draw(&mut h,vec![egui::Event::PointerMoved(to)]);
     assert_eq!(h.app.settings.page_order,[0,1,2,3,4,5,6,7]);
     draw(&mut h,vec![button(to,false)]);
-    assert_eq!(h.app.settings.page_order,[1,3,0,4,5,6,7,2]);
+    assert_eq!(h.app.settings.page_order,[1,2,3,0,4,5,6,7]);
     assert_eq!(crate::model::Settings::load().page_order,h.app.settings.page_order);
+}
+
+#[test]
+fn performance_page_renders_core_metrics() {
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    let mut h=H::new();
+    assert!(h.app.settings.visible_pages[2],"性能页默认显示");
+    h.app.show_page(2);
+    for _ in 0..120 {h.frame(vec![]);}
+    assert_eq!(h.app.page,2);
+    let text= |label:&str| h.shapes.iter().any(|s|matches!(&s.shape,egui::Shape::Text(t)if t.galley.text()==label));
+    for label in ["CPU","内存","网络","存储"] {assert!(text(label),"性能页缺少 {label}");}
 }
 
 #[test]
@@ -4519,7 +4532,7 @@ fn fluent_island_gallery(){
     std::fs::create_dir_all(&dest).unwrap();
     for (mode,name) in [(crate::settings_theme::SettingsTheme::Light,"light"),(crate::settings_theme::SettingsTheme::Dark,"dark")] {
         for material in crate::model::Skin::ALL {
-            for page in [0usize,1,4,6] {
+            for page in [0usize,1,2,4,6] {
                 let mut h=H::new();
                 h.app.settings.settings_theme=mode;
                 h.app.settings.skin=material;
@@ -5321,7 +5334,7 @@ fn wheel_short_clipboard_and_calendar_turn_pages(){
     for count in [0,1,crate::pages::CLIP_ROWS]{
         h.app.clipboard.lock().items.clear();
         for i in 0..count{h.app.clipboard.lock().push(&i.to_string(),"09:00");}
-        for (delta,page) in [(-40.0,4),(40.0,1)]{
+        for (delta,page) in [(-40.0,4),(40.0,2)]{
             h.app.show_page(3);h.app.shelf_tab=1;h.hover(H::local(300.0,60.0),0.5);h.wheel(delta);
             assert_eq!(h.app.page,page,"剪贴板未溢出应翻页，条数 {count}");
         }

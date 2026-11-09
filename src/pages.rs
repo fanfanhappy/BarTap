@@ -8,6 +8,7 @@ use crate::paint::{self, capsule, mix, Card, H};
 use crate::smtc::Transport;
 use crate::theme::{self, size, W};
 use eframe::egui::{self, Color32, Pos2, Rect};
+use std::collections::VecDeque;
 use std::f32::consts::{FRAC_PI_2, TAU};
 
 /// 剪贴板分栏一屏显示的条数。
@@ -32,6 +33,21 @@ fn cover_colors(title: &str) -> (Color32, Color32) {
         (Color32::from_rgb(251, 191, 36), Color32::from_rgb(239, 68, 68)),
     ];
     palette[(h % palette.len() as u64) as usize]
+}
+
+fn perf_card(c:&Card,x:f32,y:f32,w:f32,h:f32){
+    c.fill(x,y,w,h,10.0,theme::CARD);
+}
+
+fn perf_spark(c:&Card,x:f32,y:f32,w:f32,h:f32,data:&VecDeque<f32>,color:Color32){
+    if data.len()<2 || w<=0.0 {return;}
+    let n=(data.len()-1) as f32;
+    let mut prev=None;
+    for (i,value) in data.iter().enumerate(){
+        let point=(x+w*i as f32/n,y+h-(value.clamp(0.0,100.0)/100.0)*h);
+        if let Some(last)=prev {c.seg(last,point,1.0,color);}
+        prev=Some(point);
+    }
 }
 
 impl App {
@@ -268,6 +284,53 @@ impl App {
         self.pomo.phase = ph;
         self.pomo.remaining = self.phase_secs(ph);
         self.pomo.running = false;
+    }
+
+    // ================= 性能 =================
+    pub(crate) fn page_perf(&mut self, c: &Card) {
+        self.perf.ensure_started();
+        let sample = self.perf.latest().clone();
+        let cpu = self.perf.cpu_history().clone();
+        let mem = self.perf.mem_history().clone();
+        let (x1, x2, y1, y2, w, h) = (36.0, 213.0, 34.0, 83.0, 170.0, 44.0);
+        perf_card(c, x1, y1, w, h);
+        perf_card(c, x2, y1, w, h);
+        perf_card(c, x1, y2, w, h);
+        perf_card(c, x2, y2, w, h);
+
+        c.text(x1 + 9.0, y1 + 13.0, "CPU", 10.0, W::Semibold, theme::GRAY, H::Left);
+        c.text(x1 + w - 9.0, y1 + 13.0, &format!("{} 线程", sample.cores), 9.0, W::Regular, theme::GRAY, H::Right);
+        let cpu_text = sample.cpu.map_or("—".into(), |v| format!("{v:.0}%"));
+        c.text(x1 + 9.0, y1 + 36.0, &cpu_text, 21.0, W::Bold, theme::WHITE, H::Left);
+        perf_spark(c, x1 + 92.0, y1 + 24.0, w - 101.0, 13.0, &cpu, theme::CYAN);
+
+        c.text(x2 + 9.0, y1 + 13.0, "内存", 10.0, W::Semibold, theme::GRAY, H::Left);
+        if sample.mem_total > 0 {
+            c.text(x2 + w - 9.0, y1 + 13.0, &format!("{:.1} / {:.1} GB", crate::perf::gb(sample.mem_used), crate::perf::gb(sample.mem_total)), 8.5, W::Regular, theme::GRAY, H::Right);
+        }
+        let mem_pct = crate::perf::memory_percent(sample.mem_used, sample.mem_total);
+        c.text(x2 + 9.0, y1 + 36.0, &if sample.mem_total > 0 { format!("{mem_pct:.0}%") } else { "—".into() }, 21.0, W::Bold, theme::WHITE, H::Left);
+        perf_spark(c, x2 + 92.0, y1 + 24.0, w - 101.0, 13.0, &mem, theme::SOFT_GREEN);
+
+        c.text(x1 + 9.0, y2 + 13.0, "网络", 10.0, W::Semibold, theme::GRAY, H::Left);
+        let down = sample.net_down.map_or("—".into(), |v| format!("↓ {}", crate::perf::rate_text(v)));
+        let up = sample.net_up.map_or("—".into(), |v| format!("↑ {}", crate::perf::rate_text(v)));
+        c.text(x1 + 9.0, y2 + 30.0, &down, 10.5, W::Semibold, theme::WHITE, H::Left);
+        c.text(x1 + 9.0, y2 + 41.0, &up, 9.5, W::Regular, theme::GRAY, H::Left);
+
+        c.text(x2 + 9.0, y2 + 13.0, "存储", 10.0, W::Semibold, theme::GRAY, H::Left);
+        c.text(x2 + w - 9.0, y2 + 13.0, "系统盘 C:", 9.0, W::Regular, theme::GRAY, H::Right);
+        if sample.storage_total > 0 {
+            let free = crate::perf::gb(sample.storage_free);
+            let total = crate::perf::gb(sample.storage_total);
+            let used = crate::perf::storage_percent(sample.storage_free, sample.storage_total);
+            c.text(x2 + 9.0, y2 + 35.0, &format!("{free:.0} GB"), 19.0, W::Bold, theme::WHITE, H::Left);
+            c.text(x2 + w - 9.0, y2 + 35.0, &format!("共 {total:.0} GB"), 8.5, W::Regular, theme::GRAY, H::Right);
+            c.fill(x2 + 9.0, y2 + h - 6.0, w - 18.0, 3.0, 1.5, theme::TRACK);
+            c.fill(x2 + 9.0, y2 + h - 6.0, (w - 18.0) * used / 100.0, 3.0, 1.5, if used > 90.0 { theme::YELLOW } else { theme::BLUE });
+        } else {
+            c.text(x2 + 9.0, y2 + 35.0, "—", 19.0, W::Bold, theme::WHITE, H::Left);
+        }
     }
 
     // ================= 置物架 =================

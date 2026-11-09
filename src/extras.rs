@@ -1102,14 +1102,14 @@ impl App {
                         });
                         settings_label(ui,"功能页面");
                         settings_card(ui,|ui|{
-                            let descriptions=["播放控制与同步歌词","番茄钟与休息计时","","临时收纳文件位置","任务清单与到期提醒","邮件摘要与验证码","Agent 剩余额度和账号切换","月历、邮件邀请与工作日程"];
+                            let descriptions=["播放控制与同步歌词","番茄钟与休息计时","CPU、内存、网络与系统盘","临时收纳文件位置","任务清单与到期提醒","邮件摘要与验证码","Agent 剩余额度和账号切换","月历、邮件邀请与工作日程"];
                             ui.label(egui::RichText::new("拖动左侧手柄调整顺序，松开后自动应用到岛。").size(11.5).color(crate::settings_theme::current().text_secondary));
                             #[derive(Clone)]
                             struct PageDrag(usize);
                             let mut movement=None;
                             let row_w=ui.available_width();
-                            // 第 2 页（饮水）已移除：不在页面管理中显示，也不能重新启用。
-                            let mut order:Vec<usize>=self.settings.page_order.iter().copied().filter(|page|*page!=2).collect();
+                            // 页面 2 现在是性能页，和其他页面一样可排序、可开关。
+                            let mut order:Vec<usize>=self.settings.page_order.iter().copied().collect();
                             for (index,page) in order.iter().copied().enumerate() {
                                 if index>0 {ui.separator();}
                                 let mut visible=self.settings.visible_pages[page];
@@ -1137,8 +1137,6 @@ impl App {
                                 let from=order.iter().position(|p|*p==page).unwrap();
                                 if from<to {order[from..=to].rotate_left(1);}
                                 else {order[to..=from].rotate_right(1);}
-                                // 保留已移除页的槽位，放在末尾且永不显示。
-                                order.push(2);
                                 self.settings.page_order.copy_from_slice(&order);
                             }
                             if self.settings.visible_pages.iter().filter(|enabled|**enabled).count()==1 {
