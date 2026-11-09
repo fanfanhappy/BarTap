@@ -67,9 +67,6 @@ struct Shell {
     bt: Vec<bartap::bt::Device>,
     bt_ready: bool,
     volume_quiet: PollClock,
-    /// v0.5.5：邮件收信服务（工作线程），以及上次同步给它的账号/开关快照。
-    mail: bartap::mail::Service,
-    mail_sig: (bool, u32, Vec<bartap::mail::Account>),
     /// v0.5.6：日程（CalDAV）服务与上次下发的配置。
     cal: bartap::calendar::Service,
     cal_sig: (Vec<bartap::calendar::Config>, bool),
@@ -91,8 +88,6 @@ impl Shell {
         {let ctx=cc.egui_ctx.clone();bartap::clipboard::watch(app.clipboard.clone(),move||ctx.request_repaint());}
         if std::env::args().any(|arg|arg=="--settings"){app.open_settings();}
         if std::env::args().any(|arg|arg=="--calendar"){app.open_calendar(None);}
-        #[cfg(feature="record")]
-        if std::env::var("BARTAP_MAIL_DEMO").is_ok(){app.mail_demo();}
         #[cfg(feature="record")]
         if std::env::var("BARTAP_CAL_DEMO").is_ok(){app.calendar_demo();}
         #[cfg(feature="record")]
@@ -161,8 +156,6 @@ impl Shell {
             bt: Vec::new(),
             bt_ready: false,
             volume_quiet: PollClock::default(),
-            mail: bartap::mail::Service::start(),
-            mail_sig: (false, 0, Vec::new()),
             cal: bartap::calendar::Service::start(),
             cal_sig: (Vec::new(), true),
             quota: bartap::quota::Service::start(), quota_sig: None, quota_at: PollClock::default(),
@@ -429,14 +422,6 @@ impl eframe::App for Shell {
             }
         }
         let env = self.env(ctx);
-        // v0.5.5 邮件：开关 / 间隔 / 账号清单变了就重新对齐收信线程，再把事件交给界面。
-        let sig=(self.app.settings.mail_enabled,self.app.settings.mail_interval,self.app.mail_accounts().to_vec());
-        if sig!=self.mail_sig{
-            let accounts:&[bartap::mail::Account]=if sig.0{ &sig.2 }else{ &[] };
-            self.mail.sync(accounts,sig.1);
-            self.mail_sig=sig;
-        }
-        while let Some(ev)=self.mail.try_recv(){self.app.mail_event(ev);}
         // 日程连接或自动同步开关变化时下发给工作线程。
         // 录制/截图演示用的是假账号，别让真服务去连（会立刻失败、把状态改成红色）。
         #[cfg(feature="record")]
@@ -512,8 +497,10 @@ impl eframe::App for Shell {
                 }
                 Cmd::Open(p) => {if let Err(e)=open_path(&p){self.app.say(e);}},
                 Cmd::OpenUrl(url)=>{
-                    if let Some(url)=bartap::mail::web_url(&url) {
-                        if open_path(std::path::Path::new(&url)).is_err(){self.app.say("无法打开默认浏览器，请检查 Windows 默认应用设置");}
+                    if let Ok(parsed)=url::Url::parse(url.trim()) {
+                        if matches!(parsed.scheme(),"http"|"https") {
+                            if open_path(std::path::Path::new(parsed.as_str())).is_err(){self.app.say("无法打开默认浏览器，请检查 Windows 默认应用设置");}
+                        }
                     }
                 },
                 Cmd::CalendarImport=>{
@@ -566,13 +553,6 @@ impl eframe::App for Shell {
                 cmd @ (Cmd::RequestNotifications|Cmd::RequestQqNotifications)=>{
                     #[cfg(windows)] {self.app.settings.qq_only=matches!(cmd,Cmd::RequestQqNotifications);self.app.settings.read_notifications=true;self.app.settings.save();self.incoming=None;match bartap::system::connect(ctx.clone(),self.app.settings.qq_only){Ok(rx)=>{self.incoming=Some(rx);self.app.listener_status="正在请求 Windows 通知权限…".into();},Err(e)=>self.app.listener_status=format!("Windows 未允许读取通知：{}。需要相应的系统权限或应用身份。",e.code())}}
                 },
-                Cmd::MailSync=>{
-                    let enabled=self.app.settings.mail_enabled;
-                    let accounts=if enabled{self.app.mail_accounts().to_vec()}else{Vec::new()};
-                    self.mail.sync(&accounts,self.app.settings.mail_interval);
-                    self.mail_sig=(enabled,self.app.settings.mail_interval,self.app.mail_accounts().to_vec());
-                },
-                Cmd::MailTest(account,password)=>self.mail.test(account,password),
                 Cmd::CalendarTest(cfg,password)=>self.cal.test(cfg,password),
                 Cmd::CalendarSync=>self.cal.sync_now(),
                 Cmd::CalendarMonth(month)=>self.cal.view_month(month),
@@ -591,7 +571,6 @@ impl eframe::App for Shell {
         #[cfg(windows)] let autostart = self.autostart;
         #[cfg(not(windows))] let autostart = false;
         self.app.settings_ui(ctx, autostart);
-        self.app.mail_reader_ui(ctx);
         #[cfg(windows)] let repaint_after=if self.hidden{Duration::from_secs(1)}else{out.repaint_after};
         #[cfg(not(windows))] let repaint_after=out.repaint_after;
         schedule_repaint(ctx,repaint_after);

@@ -217,13 +217,8 @@ pub struct Settings {
     pub hide_fullscreen: bool,
     pub focus_minutes: u32,
     pub rest_minutes: u32,
-    /// v0.5.5 邮件提醒：总开关、验证码高亮、轮询间隔（秒）、会议提前量（分钟）。
-    pub mail_enabled: bool,
-    pub mail_code: bool,
-    pub mail_code_hide_seconds:u32,
-    pub mail_interval: u32,
-    pub mail_ics: u32,
-    pub ignored_mail_events: Vec<String>,
+    /// 日程会议提醒提前量（分钟）。
+    pub calendar_lead: u32,
     /// v0.5.6 日程：还没配置时在岛上给一次「接入飞书日历」的提示；
     /// 用户点开设置或关掉后置 false，不再弹。
     pub calendar_prompt: bool,
@@ -238,7 +233,7 @@ pub struct Settings {
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { display_id: String::new(), skin: Skin::Solid, island_shape: IslandShape::Notch, glass_blur: true, island_size: 100, island_offset: 0, dock: Dock::Top, settings_theme: Default::default(), minimal: false, browser_minimal: false, avoid_browsers: true, avoid_apps: Vec::new(), visible_pages: [true,true,true,true,true,true,true,true], page_order: [0,1,2,3,4,5,6,7], show_battery: true, clock_12h: false, clock_period: 0, resident_order: Vec::new(), system_hud: true, bluetooth_notifications: true, read_notifications:false, wechat_notifications:false, wechat_tray_open:false, qq_only:false, notification_preview:false, notifications: true, sound: false, lyrics_enabled:true, island_lyrics:false, lyric_delay_ms:-350, hide_fullscreen: true, focus_minutes: 25, rest_minutes: 5, mail_enabled: true, mail_code: true, mail_code_hide_seconds:60, mail_interval: 120, mail_ics: 15, ignored_mail_events: Vec::new(), calendar_prompt: true, calendar_auto_sync: true, clipboard_history: true, settings_background: String::new(), settings_background_dim: 55 }
+        Self { display_id: String::new(), skin: Skin::Solid, island_shape: IslandShape::Notch, glass_blur: true, island_size: 100, island_offset: 0, dock: Dock::Top, settings_theme: Default::default(), minimal: false, browser_minimal: false, avoid_browsers: true, avoid_apps: Vec::new(), visible_pages: [true,true,true,true,true,false,true,true], page_order: [0,1,2,3,4,5,6,7], show_battery: true, clock_12h: false, clock_period: 0, resident_order: Vec::new(), system_hud: true, bluetooth_notifications: true, read_notifications:false, wechat_notifications:false, wechat_tray_open:false, qq_only:false, notification_preview:false, notifications: true, sound: false, lyrics_enabled:true, island_lyrics:false, lyric_delay_ms:-350, hide_fullscreen: true, focus_minutes: 25, rest_minutes: 5, calendar_lead: 15, calendar_prompt: true, calendar_auto_sync: true, clipboard_history: true, settings_background: String::new(), settings_background_dim: 55 }
     }
 }
 
@@ -321,19 +316,15 @@ impl Settings {
                 "hide_fullscreen" => s.hide_fullscreen = v != "0",
                 "focus_minutes" => s.focus_minutes = v.parse::<u32>().unwrap_or(25).clamp(1, 180),
                 "rest_minutes" | "short_minutes" => s.rest_minutes = v.parse::<u32>().unwrap_or(5).clamp(1, 60),
-                "mail_enabled" => s.mail_enabled = v != "0",
-                "mail_code" => s.mail_code = v != "0",
-                "mail_code_hide_seconds" => s.mail_code_hide_seconds=v.parse::<u32>().unwrap_or(60).clamp(15,300),
-                "mail_interval" => s.mail_interval = match v.parse::<u32>().unwrap_or(120) { 60 => 60, 300 => 300, _ => 120 },
-                "ignored_mail_events" => s.ignored_mail_events = serde_json::from_str(&v).unwrap_or_default(),
-                "mail_ics" => s.mail_ics = match v.parse::<u32>().unwrap_or(15) { 5 => 5, 30 => 30, _ => 15 },
+                "calendar_lead" => s.calendar_lead = match v.parse::<u32>().unwrap_or(15) { 5 => 5, 30 => 30, _ => 15 },
                 "calendar_prompt" => s.calendar_prompt = v != "0",
                 "calendar_auto_sync" => s.calendar_auto_sync = v != "0",
                 "clipboard_history" => s.clipboard_history = v != "0",
                 _ => {}
             }
         }
-        // 第 2 页现在是性能页；旧配置若关闭保持关闭，可在页面管理中开启。
+        // 第 5 页（邮件）已移除，保留槽位以兼容旧配置，但永不启用。
+        s.visible_pages[5]=false;
         if !s.visible_pages.contains(&true) { s.visible_pages[0]=true; }
         s
     }
@@ -377,12 +368,7 @@ impl Settings {
                 ("hide_fullscreen".into(), (self.hide_fullscreen as u8).to_string()),
                 ("focus_minutes".into(), self.focus_minutes.to_string()),
                 ("rest_minutes".into(), self.rest_minutes.to_string()),
-                ("mail_enabled".into(), (self.mail_enabled as u8).to_string()),
-                ("mail_code".into(), (self.mail_code as u8).to_string()),
-                ("mail_code_hide_seconds".into(), self.mail_code_hide_seconds.to_string()),
-                ("mail_interval".into(), self.mail_interval.to_string()),
-                ("mail_ics".into(), self.mail_ics.to_string()),
-                ("ignored_mail_events".into(), serde_json::to_string(&self.ignored_mail_events).unwrap()),
+                ("calendar_lead".into(), self.calendar_lead.to_string()),
                 ("calendar_prompt".into(), (self.calendar_prompt as u8).to_string()),
                 ("calendar_auto_sync".into(), (self.calendar_auto_sync as u8).to_string()),
                 ("clipboard_history".into(), (self.clipboard_history as u8).to_string()),

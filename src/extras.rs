@@ -22,7 +22,7 @@ pub(crate) struct Alert {
     pub at: f64,
     pub duration: f64,
     pub bluetooth: Option<(crate::bt::DeviceKind, bool)>,
-    pub meeting: Option<(crate::mail::Meeting, String)>,
+    pub meeting: Option<(crate::meeting::Meeting, String)>,
 }
 impl Alert {
     pub(crate) fn messenger(&self)->Option<crate::app::Messenger>{
@@ -136,7 +136,7 @@ fn notice_icon(c:&Card,x:f32,y:f32,a:&Alert) {
         "待办到时间了"=>crate::paint::checklist(c,x,y,23.0,Color32::from_rgb(190,180,255),Color32::from_rgb(43,35,66)),
         "会议提醒"=>{
             let label=a.meeting.as_ref().map(|(_,source)|source.as_str()).unwrap_or("");
-            let source=if label=="本机日程"{crate::calendar_ui::Source::Local}else if label.starts_with("邮件"){crate::calendar_ui::Source::Mail("")}
+            let source=if label=="本机日程"{crate::calendar_ui::Source::Local}
                 else{crate::calendar_ui::Source::Calendar(crate::calendar::Provider::ALL.into_iter().find(|provider|provider.label()==label))};
             crate::calendar_ui::source_icon(c,source,x-14.0,y-14.0,28.0);
         },
@@ -177,7 +177,7 @@ impl App {
         };
         self.enqueue_alert(a, system);
     }
-    pub(crate) fn meeting_alert(&mut self, meeting: crate::mail::Meeting, source: String, page: usize) {
+    pub(crate) fn meeting_alert(&mut self, meeting: crate::meeting::Meeting, source: String, page: usize) {
         self.enqueue_alert(Alert {
             source: AlertSource::Internal,
             title: "会议提醒".into(), body: format!("{} · {} · {}", meeting.title, meeting.at, source),
@@ -268,8 +268,7 @@ impl App {
         self.notification_bell_until=self.t+4.5;
         let title=app.chars().filter(|c|!c.is_control()).take(80).collect();
         let body=if self.settings.notification_preview {
-            let mut text=body.chars().filter(|c|!c.is_control()).take(300).collect::<String>();
-            if let Some(code)=crate::otp::extract("",&text,&[]) {text=crate::mail_privacy::mask(&text,&code.text);}
+            let text=body.chars().filter(|c|!c.is_control()).take(300).collect::<String>();
             text
         }else{"收到新通知 · 内容已隐藏".into()};
         self.enqueue_alert(Alert{source:AlertSource::External(id),title,body,page:usize::MAX,at:self.t,duration:4.5,bluetooth:None,meeting:None},false);
@@ -558,10 +557,10 @@ mod tests {
 
     #[test]
     fn settings_groups_keep_every_page_reachable() {
-        let groups = ["常规", "音乐与歌词", "专注", "专注", "待办与置物", "待办与置物", "通知、邮箱与日程", "通知、邮箱与日程", "通知、邮箱与日程", "关于", "页面管理", "AI 额度"];
+        let groups = ["常规", "音乐与歌词", "专注", "专注", "待办与置物", "待办与置物", "通知与日程", "通知与日程", "", "关于", "页面管理", "AI 额度"];
         for (tab, expected) in groups.iter().enumerate() {
-            // 3 号设置页（饮水）已移除，保留编号但不再显示。
-            if tab == 3 { continue; }
+            // 3 号设置页（饮水）和 8 号（原邮件）已移除，保留编号但不再显示。
+            if tab == 3 || tab == 8 { continue; }
             let matches: Vec<_> = SETTINGS_GROUPS.iter().filter(|(_,start,end)| (*start..=*end).contains(&tab)).collect();
             assert_eq!(matches.len(), 1, "页面 {tab} 必须且只能属于一个分组");
             assert_eq!(matches[0].0, *expected);
@@ -890,7 +889,7 @@ fn setting_choices(ui:&mut egui::Ui,title:&str,value:&mut u32,values:[u32;3],uni
 }
 const SETTINGS_GROUPS: [(&str,usize,usize);8] = [
     ("常规",0,0), ("页面管理",10,10), ("音乐与歌词",1,1), ("专注",2,2),
-    ("待办与置物",4,5), ("通知、邮箱与日程",6,8), ("AI 额度",11,11), ("关于",9,9),
+    ("待办与置物",4,5), ("通知与日程",6,7), ("AI 额度",11,11), ("关于",9,9),
 ];
 
 impl App {
@@ -1065,7 +1064,7 @@ impl App {
                     }
                 }
                 ui.visuals_mut().selection.bg_fill=t.accent.gamma_multiply(0.32);
-                let titles=["常规","音乐与歌词","专注","","待办","置物","通知","邮箱","日程","关于","页面管理","AI 额度"];
+                let titles=["常规","音乐与歌词","专注","","待办","置物","通知","日程","","关于","页面管理","AI 额度"];
                 ui.label(egui::RichText::new(titles[self.settings_tab.min(11)]).size(18.0).strong().color(t.text));
                 if let Some((_,start,end))=SETTINGS_GROUPS.iter().find(|(_,start,end)|(*start..=*end).contains(&self.settings_tab)) {
                     if start!=end {
@@ -1102,14 +1101,14 @@ impl App {
                         });
                         settings_label(ui,"功能页面");
                         settings_card(ui,|ui|{
-                            let descriptions=["播放控制与同步歌词","番茄钟与休息计时","CPU、内存、网络与系统盘","临时收纳文件位置","任务清单与到期提醒","邮件摘要与验证码","Agent 剩余额度和账号切换","月历、邮件邀请与工作日程"];
+                            let descriptions=["播放控制与同步歌词","番茄钟与休息计时","CPU、内存、网络与系统盘","临时收纳文件位置","任务清单与到期提醒","","Agent 剩余额度和账号切换","月历、邮件邀请与工作日程"];
                             ui.label(egui::RichText::new("拖动左侧手柄调整顺序，松开后自动应用到岛。").size(11.5).color(crate::settings_theme::current().text_secondary));
                             #[derive(Clone)]
                             struct PageDrag(usize);
                             let mut movement=None;
                             let row_w=ui.available_width();
-                            // 页面 2 现在是性能页，和其他页面一样可排序、可开关。
-                            let mut order:Vec<usize>=self.settings.page_order.iter().copied().collect();
+                            // 第 5 页（邮件）已移除：不在页面管理中显示，也不能重新启用。
+                            let mut order:Vec<usize>=self.settings.page_order.iter().copied().filter(|page|*page!=5).collect();
                             for (index,page) in order.iter().copied().enumerate() {
                                 if index>0 {ui.separator();}
                                 let mut visible=self.settings.visible_pages[page];
@@ -1137,6 +1136,8 @@ impl App {
                                 let from=order.iter().position(|p|*p==page).unwrap();
                                 if from<to {order[from..=to].rotate_left(1);}
                                 else {order[to..=from].rotate_right(1);}
+                                // 保留已移除页的槽位，放在末尾且永不显示。
+                                order.push(5);
                                 self.settings.page_order.copy_from_slice(&order);
                             }
                             if self.settings.visible_pages.iter().filter(|enabled|**enabled).count()==1 {
@@ -1361,124 +1362,6 @@ impl App {
                         });
                     }
                     7=>{
-                        settings_label(ui,"邮件提醒");
-                        settings_card(ui,|ui|{
-                            setting_row(ui,"新邮件提醒","新邮件到达时显示提醒；岛上歌词模式显示右侧图标",&mut self.settings.mail_enabled);
-                            ui.separator();
-                            setting_row(ui,"验证码高亮","识别到验证码时在岛上放大显示，点击即复制",&mut self.settings.mail_code);
-                            ui.separator();
-                            setting_choices(ui,"验证码隐藏",&mut self.settings.mail_code_hide_seconds,[30,60,300],"秒");
-                            ui.label("默认 60 秒。明确有效时长更短时提前隐藏；历史邮件默认隐藏。隐藏不代表失效，主动查看后 15 秒再次隐藏。");
-                            setting_choices(ui,"检查间隔",&mut self.settings.mail_interval,[60,120,300],"秒");
-                            ui.label(egui::RichText::new("支持推送时实时收信，并每 10 秒补查；以上间隔仅用于不支持推送的邮箱。").size(11.5).color(crate::settings_theme::current().text_secondary));
-                            ui.separator();
-                            setting_choices(ui,"会议提前",&mut self.settings.mail_ics,[5,15,30],"分钟");
-                            ui.label(egui::RichText::new("根据邮件中的日历邀请提醒，与日程设置共用。").size(11.5).color(crate::settings_theme::current().text_secondary));
-                        });
-                        settings_label(ui,"已添加的邮箱");
-                        settings_card(ui,|ui|{
-                            if self.mail.accounts.is_empty(){ui.label(egui::RichText::new("还没有邮箱。在下面添加，保存后自动连接。").size(12.0).color(crate::settings_theme::current().text_secondary));}
-                            let total=self.mail.accounts.len();
-                            let(mut changed,mut remove,mut test)=(false,None,None);
-                            for i in 0..total{
-                                let(email,provider)=(self.mail.accounts[i].email.clone(),self.mail.accounts[i].provider);
-                                let status=self.mail.status_of(&email).label();
-                                let mut on=self.mail.accounts[i].enabled;
-                                if i>0{ui.separator();}
-                                ui.label(egui::RichText::new(&email).size(13.0).color(crate::settings_theme::current().text));
-                                ui.label(egui::RichText::new(format!("{} · {}",provider.label(),status)).size(12.0).color(crate::settings_theme::current().text_secondary));
-                                ui.horizontal(|ui|{
-                                    if ui.add_sized([66.0,30.0],egui::Button::new("测试")).clicked(){test=Some(i);}
-                                    if ui.add_sized([66.0,30.0],egui::Button::new("删除")).clicked(){remove=Some(i);}
-                                    ui.add_space(8.0);
-                                    ui.label(egui::RichText::new("启用").size(12.0).color(crate::settings_theme::current().text_secondary));
-                                    if switch(ui,&mut on){self.mail.accounts[i].enabled=on;changed=true;}
-                                });
-                            }
-                            if changed{self.mail_accounts_changed();}
-                            if let Some(i)=remove{
-                                let email=self.mail.accounts[i].email.clone();
-                                let credential=self.mail.accounts[i].credential_key();
-                                self.mail.accounts.remove(i);
-                                crate::mail::secrets::delete(&credential);
-                                self.mail.status.remove(&email.to_ascii_lowercase());
-                                self.mail.note=format!("{email}：已移除，凭据已从系统凭据管理器删除");
-                                self.mail_accounts_changed();
-                            }
-                            if let Some(i)=test{
-                                let account=self.mail.accounts[i].clone();
-                                match crate::mail::secrets::load(&account.credential_key()){
-                                    Ok(pass)=>{self.mail.testing=Some(account.email.clone());self.mail.note=format!("{}：正在测试连接…",account.email);self.pending.push(Cmd::MailTest(account,pass));}
-                                    Err(e)=>self.mail.note=format!("{}：{e}",account.email),
-                                }
-                            }
-                        });
-                        settings_label(ui,"添加邮箱");
-                        settings_card(ui,|ui|{
-                            settings_control_row(ui,"邮箱服务",56.0,|ui|{
-                                egui::ComboBox::from_id_salt("mail-provider").width(160.0).selected_text(self.mail.form.provider.label()).show_ui(ui,|ui|{
-                                    for p in crate::mail::Provider::ALL{if ui.selectable_label(self.mail.form.provider==p,p.label()).clicked(){self.mail.form.provider=p;}}
-                                }).response
-                            });
-                            ui.add_space(5.0);
-                            ui.label(egui::RichText::new("获取授权码或专用密码").size(12.5).strong());
-                            ui.add(egui::Label::new(egui::RichText::new(self.mail.form.provider.hint()).size(12.0).color(crate::settings_theme::current().text_secondary)).wrap());
-                            let (label,url)=self.mail.form.provider.setup_link();
-                            if !url.is_empty() && ui.link(label).clicked(){self.pending.push(Cmd::OpenUrl(url.into()));}
-                            ui.add_space(8.0);
-                            if self.mail.form.provider==crate::mail::Provider::Custom {
-                                settings_control_row(ui,"IMAP 主机",80.0,|ui|{ui.text_edit_singleline(&mut self.mail.form.custom.host)});
-                                settings_control_row(ui,"TLS 端口",80.0,|ui|{ui.add(egui::DragValue::new(&mut self.mail.form.custom.port).range(1..=65535))});
-                                settings_control_row(ui,"登录用户名",80.0,|ui|{ui.add(egui::TextEdit::singleline(&mut self.mail.form.custom.username).vertical_align(egui::Align::Center).hint_text("留空使用邮箱地址"))});
-                            }
-                            let input_width=(ui.available_width()-56.0-48.0-2.0*ui.spacing().item_spacing.x).max(100.0);
-                            settings_control_row(ui,"邮箱",56.0,|ui|{
-                                ui.add_sized([input_width,30.0],egui::TextEdit::singleline(&mut self.mail.form.email).vertical_align(egui::Align::Center).hint_text("输入邮箱地址"))
-                            });
-                            settings_control_row(ui,"授权码",56.0,|ui|{
-                                let field=ui.add_sized([input_width,30.0],egui::TextEdit::singleline(&mut self.mail.form.password).vertical_align(egui::Align::Center).password(!self.mail.form.show).hint_text("输入邮箱授权码"));
-                                if ui.add_sized([48.0,30.0],egui::Button::new(if self.mail.form.show{"隐藏"}else{"显示"})).clicked(){self.mail.form.show=!self.mail.form.show;}
-                                field
-                            });
-                            ui.horizontal(|ui|{
-                                if ui.button("测试连接").clicked(){
-                                    let email=self.mail.form.email.trim().to_string();
-                                    let target=crate::mail::Account{custom:(self.mail.form.provider==crate::mail::Provider::Custom).then(||self.mail.form.custom.clone()),email:email.clone(),provider:self.mail.form.provider,enabled:true};
-                                    if !email.contains('@'){self.mail.note="请先填邮箱地址".into();}
-                                    else if let Err(error)=target.endpoint(){self.mail.note=error;}
-                                    else if self.mail.form.password.is_empty(){self.mail.note="请先填授权码（不是邮箱登录密码）".into();}
-                                    else{
-                                        self.mail.testing=Some(email.clone());
-                                        self.mail.note=format!("{email}：正在测试连接…");
-                                        self.pending.push(Cmd::MailTest(crate::mail::Account {custom: (self.mail.form.provider==crate::mail::Provider::Custom).then(||self.mail.form.custom.clone()), email:email.clone(),provider:self.mail.form.provider,enabled:true},self.mail.form.password.clone()));
-                                    }
-                                }
-                                if ui.button("保存并开始监控").clicked(){
-                                    let email=self.mail.form.email.trim().to_string();
-                                    let target=crate::mail::Account{custom:(self.mail.form.provider==crate::mail::Provider::Custom).then(||self.mail.form.custom.clone()),email:email.clone(),provider:self.mail.form.provider,enabled:true};
-                                    if !email.contains('@'){self.mail.note="请先填邮箱地址".into();}
-                                    else if let Err(error)=target.endpoint(){self.mail.note=error;}
-                                    else if self.mail.form.password.is_empty(){self.mail.note="请先填授权码（不是邮箱登录密码）".into();}
-                                    else{
-                                        match crate::mail::secrets::save(&target.credential_key(),&self.mail.form.password){
-                                            Ok(())=>{
-                                                let account=crate::mail::Account {custom: (self.mail.form.provider==crate::mail::Provider::Custom).then(||self.mail.form.custom.clone()), email:email.clone(),provider:self.mail.form.provider,enabled:true};
-                                                if let Some(slot)=self.mail.accounts.iter_mut().find(|a|a.email.eq_ignore_ascii_case(&email)){*slot=account;}else{self.mail.accounts.push(account);}
-                                                self.mail.form.password.clear();
-                                                self.mail.note=format!("{email}：已保存，正在连接…");
-                                                self.mail_accounts_changed();
-                                            }
-                                            Err(e)=>self.mail.note=e,
-                                        }
-                                    }
-                                }
-                            });
-                            ui.label(egui::RichText::new("授权码存储在 Windows 凭据管理器中。").size(12.0).color(crate::settings_theme::current().text_secondary));
-                            ui.label(egui::RichText::new("图片中的验证码请在邮箱查看。").size(12.0).color(crate::settings_theme::current().text_secondary));
-                            if !self.mail.note.is_empty(){ui.add_space(3.0);ui.add(egui::Label::new(egui::RichText::new(&self.mail.note).size(12.0).color(crate::settings_theme::current().text_secondary)).wrap());}
-                        });
-                    }
-                    8=>{
                         ui.spacing_mut().item_spacing.y=4.0;
                         // v0.5.6 日程：状态在最上面，后面才是平台、账号和提醒。
                         // 只读；服务器地址由平台决定，用户不用抄。
@@ -1629,8 +1512,8 @@ impl App {
                             ui.horizontal(|ui|{
                                 ui.allocate_ui_with_layout(egui::vec2(50.0,32.0),egui::Layout::left_to_right(egui::Align::Center),|ui|{ui.set_min_size(egui::vec2(50.0,32.0));ui.label(egui::RichText::new("提前").size(13.0));});
                                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center),|ui|{
-                                    for minutes in [30,15,5]{let selected=self.settings.mail_ics==minutes;
-                                        if ui.add_sized([62.0,32.0],egui::Button::new(format!("{minutes} 分钟")).selected(selected)).clicked(){self.settings.mail_ics=minutes;}
+                                    for minutes in [30,15,5]{let selected=self.settings.calendar_lead==minutes;
+                                        if ui.add_sized([62.0,32.0],egui::Button::new(format!("{minutes} 分钟")).selected(selected)).clicked(){self.settings.calendar_lead=minutes;}
                                     }
                                 });
                             });

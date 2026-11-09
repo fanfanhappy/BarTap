@@ -6,7 +6,6 @@
 //! - `native` / `tray`：仅 Windows 的窗口区域、命中穿透与托盘
 
 pub mod display_layout;
-mod mail_privacy;
 pub mod poll_clock;
 pub mod resources;
 pub mod anim;
@@ -21,13 +20,11 @@ pub mod skin_paint;
 pub mod icons;
 pub mod input;
 pub mod lyrics;
-pub mod mail;
-mod mail_reader;
+pub mod meeting;
 pub mod clipboard;
 pub mod side_dock;
 mod task_picker;
 pub mod model;
-pub mod otp;
 pub mod perf;
 pub mod quota;
 mod quota_ui;

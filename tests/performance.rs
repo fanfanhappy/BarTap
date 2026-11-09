@@ -26,8 +26,6 @@ fn background_service_sample(){
     let context=eframe::egui::Context::default();
     let media=bartap::smtc::shared();
     let(mut bluetooth,mut system,mut notifications)=(None,None,None);
-    let mut mail=None;
-    let mut mail_events=Vec::new();
     let (mut calendar,mut quota)=(None,None);
     let (mut quota_ok,mut quota_failed)=(0,0);
     let (mut calendar_events,mut quota_events)=(Vec::new(),Vec::new());
@@ -36,11 +34,6 @@ fn background_service_sample(){
         "bluetooth"=>bluetooth=Some(bartap::bt::spawn()),
         "system"=>system=Some(bartap::system::observe(context,Default::default(),None)),
         "notifications"=>notifications=Some(bartap::system::connect(context,false).expect("已有通知权限")),
-        "mail"=>{
-            let accounts=bartap::mail::load_accounts().into_iter().filter(|a|a.enabled).take(1).collect::<Vec<_>>();
-            assert_eq!(accounts.len(),1,"需要一个已配置邮箱");
-            let worker=bartap::mail::Service::start();worker.sync(&accounts,120);mail=Some(worker);
-        },
         "calendar"=>{let configs=bartap::calendar::load_configs();println!("configured_accounts={}",configs.len());let worker=bartap::calendar::Service::start();worker.configure(configs,true);calendar=Some(worker);},
         "quota"=>{let config=bartap::quota::Config::load();let accounts=config.accounts.iter().filter(|a|config.enabled && a.enabled).cloned().collect::<Vec<_>>();println!("configured_accounts={}",accounts.len());let worker=bartap::quota::Service::start();worker.refresh(accounts);quota=Some((worker,config));},
         "idle"=>{},_=>panic!("未知采样服务"),
@@ -50,7 +43,6 @@ fn background_service_sample(){
         if let Some(service)=&bluetooth{while service.rx.try_recv().is_ok(){}}
         if let Some(rx)=&system{while rx.try_recv().is_ok(){}}
         if let Some(rx)=&notifications{while rx.try_recv().is_ok(){}}
-        if let Some(worker)=&mail{while let Some(event)=worker.try_recv(){mail_events.push(event);}}
         if let Some(worker)=&calendar{while let Some(event)=worker.try_recv(){calendar_events.push(event);}}
         if let Some((worker,config))=&quota{while let Some(event)=worker.try_recv(config){if event.result.is_ok(){quota_ok+=1;}else{quota_failed+=1;}quota_events.push(event);}}
         std::thread::sleep(Duration::from_millis(100));
@@ -58,6 +50,5 @@ fn background_service_sample(){
     let after=sample();
     if quota.is_some(){println!("successful_accounts={quota_ok} failed_accounts={quota_failed}");}
     if calendar.is_some(){println!("successful_syncs={} failed_syncs={}",calendar_events.iter().filter(|e|matches!(e,bartap::calendar::Event::Synced{..})).count(),calendar_events.iter().filter(|e|matches!(e,bartap::calendar::Event::Failed{..})).count());}
-    if mail.is_some(){let count=mail_events.iter().filter(|event|matches!(event,bartap::mail::Event::Mail{..})).count();assert!(count>0,"必须实际读到邮件才能比较占用");println!("loaded_messages={count}");}
     println!("service={service} elapsed={:.2}s cpu={:.3}s working={:.2}MiB private={:.2}MiB",started.elapsed().as_secs_f64(),after.0-before.0,after.1 as f64/1048576.0,after.2 as f64/1048576.0);
 }

@@ -6,7 +6,7 @@
 
 **A Windows 11 Fluent desktop information island**
 
-Music, focus, tasks, calendar, mail and AI quotas — collected at the edge of your screen.
+Music, focus, tasks, calendar and AI quotas — collected at the edge of your screen.
 
 ![Windows 10 / 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4)
 ![Rust + egui](https://img.shields.io/badge/Rust-egui-1F1F1F)
@@ -20,7 +20,7 @@ BarTap is an always-available desktop island for Windows. Hover near the top edg
 
 The interface follows the **Windows 11 Fluent Design / WinUI 3 visual language**, implemented with Rust and egui. It follows the Windows app theme by default and supports Light, Dark and System, with every surface sharing the same Fluent design tokens.
 
-> **Current version: 1.1.0 (small update)**. The Cargo package, library and executable are `bartap` / `bartap.exe`; user data is stored in `%APPDATA%\BarTap`.
+> **Current version: 2.0.0 (mail removed, focused on core features)**. The Cargo package, library and executable are `bartap` / `bartap.exe`; user data is stored in `%APPDATA%\BarTap`.
 
 ## Features
 
@@ -31,7 +31,6 @@ The interface follows the **Windows 11 Fluent Design / WinUI 3 visual language**
 | Performance | CPU, memory, network throughput and system-drive free space; 1-second refresh with 60-second trends |
 | Tasks | One-off reminders, weekly recurrence and daily recurrence |
 | Calendar | CalDAV, Exchange ActiveSync, Feishu, DingTalk, WeCom, iCloud and `.ics` import |
-| Mail | IMAP inbox, verification-code detection and copying, full-message reader and meeting invitations |
 | AI quotas | Codex, Claude, Kimi, Grok Bot, Gemini, ZCode, WorkBuddy and DeepSeek balances |
 | Shelf | Drag files into a temporary shelf; open, reveal or drag them out |
 | Clipboard | Recent text history with pinned entries, stored locally |
@@ -42,7 +41,7 @@ The interface follows the **Windows 11 Fluent Design / WinUI 3 visual language**
 - **Three theme modes**: System, Light and Dark. System follows Windows and updates live.
 - **Three background materials**: Solid, Glass and Fluid. Colors always come from the active theme.
 - **One component language**: buttons, switches, inputs, cards, menus, dialogs and custom-drawn island content share Fluent tokens.
-- **Full coverage**: settings, mail reader, update dialog, quota connection and calendar dialogs all support Light and Dark.
+- **Full coverage**: settings, update dialog, quota connection and calendar dialogs all support Light and Dark.
 - **Settings background**: choose a local PNG / JPEG / WebP image for the settings window and adjust a readability scrim.
 - **Settings sidebar icons**: unified Apple-style rounded gradient tiles with fine white line symbols.
 - **Direct resize**: expand the island and drag the bottom-right handle; double-click the handle to reset to 100%.
@@ -60,12 +59,12 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full design standard.
 
 ## Download and install
 
-BarTap 1.1.0 is the current release. [BarTap Releases](https://github.com/fanfanhappy/BarTap/releases) will provide:
+BarTap 2.0.0 is the current release. [BarTap Releases](https://github.com/fanfanhappy/BarTap/releases) will provide:
 
 | File | Purpose |
 | --- | --- |
-| `BarTap-Setup-v1.1.0-x64.exe` | Installer with install location, shortcut and autostart options |
-| `BarTap-v1.1.0-windows-x64.zip` | Portable build |
+| `BarTap-Setup-v2.0.0-x64.exe` | Installer with install location, shortcut and autostart options |
+| `BarTap-v2.0.0-windows-x64.zip` | Portable build |
 | `SHA256SUMS.txt` | Download checksums |
 
 Until the installer is published, build from source with the instructions below. The current build artifact is `bartap.exe`.
@@ -98,8 +97,8 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for project structure and test de
 ## Data and privacy
 
 - User data is stored in `%APPDATA%\BarTap`.
-- Mail and calendar passwords use Windows Credential Manager; standalone sessions use Windows DPAPI.
-- BarTap has no self-hosted mail, calendar or account upload backend. Network features only contact the relevant providers, lyric services and the GitHub update endpoint.
+- Calendar passwords use Windows Credential Manager; standalone sessions use Windows DPAPI.
+- BarTap has no self-hosted calendar or account upload backend. Network features only contact the relevant providers, lyric services and the GitHub update endpoint.
 - See [docs/PRIVACY.md](docs/PRIVACY.md) for details.
 
 ## Project layout
@@ -109,7 +108,7 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for project structure and test de
 | `src/app.rs`, `src/pages.rs` | App state, island shell and page rendering |
 | `src/settings_theme.rs` | ThemeManager, Fluent tokens and system theme detection |
 | `src/skin_paint.rs` | Light / Dark projection for island content |
-| `src/calendar*`, `src/mail*` | Calendar and mail |
+| `src/calendar*` | Calendar |
 | `src/quota*` | AI quota providers and account connections |
 | `src/native.rs`, `src/system.rs` | Windows-native window, input and system events |
 | `docs/` | Usage, privacy, design and development docs |
@@ -119,7 +118,7 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for project structure and test de
 
 BarTap is currently a personal project without a public contribution process. Please use [Issues](https://github.com/fanfanhappy/BarTap/issues) for reproducible bugs, compatibility differences and documentation errors.
 
-Remove account details, verification codes, cookies, credentials, private mail and calendar data before posting.
+Remove account details, cookies, credentials and private calendar data before posting.
 
 ## License
 

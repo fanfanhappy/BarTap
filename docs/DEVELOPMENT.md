@@ -37,7 +37,7 @@ cargo run --locked --bin bartap
 | `src/settings_theme.rs` | ThemeManager、Fluent Token、系统主题读取 |
 | `src/skin_paint.rs` | 岛体内容的 Light / Dark 投影 |
 | `src/extras.rs` | 设置页、通知队列和共享控件 |
-| `src/calendar*`、`src/mail*` | 日历与邮件 |
+| `src/calendar*` | 日历 |
 | `src/quota*`、provider 模块 | AI 额度与连接 |
 | `src/native.rs`、`src/system.rs` | 原生窗口、输入、拖放和系统事件 |
 | `src/ui_tests.rs` | 无窗口交互、布局和主题回归测试 |
@@ -50,7 +50,7 @@ cargo run --locked --bin bartap
 BarTap 的界面颜色只有一个来源：`src/settings_theme.rs` 中的 `ThemeTokens`。
 
 - `ThemeManager` 解析 `System / Light / Dark`，读取 Windows `AppsUseLightTheme`。
-- `apply()` 把 Fluent `egui::Visuals` 应用到设置页、邮件全文、更新弹窗等 viewport。
+- `apply()` 把 Fluent `egui::Visuals` 应用到设置页、更新弹窗等 viewport。
 - 悬浮岛页面按统一深色基准绘制，再由 `skin_paint` 投影到 Fluent Light/Dark；不要为单页再写一套浅色常量。
 - 主题角色包括 `window_bg`、`card_bg`、`secondary_bg`、`text`、`text_secondary`、`border`、`accent`、控件四态和状态色。
 - 品牌色（AI 服务标识、微信/支付宝、专辑封面）不参与主题换色。
@@ -83,7 +83,7 @@ cargo test --locked --features record -- --ignored --test-threads=1 settings_the
 cargo test --locked --features record -- --ignored --test-threads=1 fluent_island_gallery
 ```
 
-真实账号、真实邮件、真实日历和联网额度测试不要放在公共 CI 中运行。
+真实账号、真实日历和联网额度测试不要放在公共 CI 中运行。
 
 ## 命名
 
@@ -99,4 +99,4 @@ BarTap 目前是个人维护项目，不设公开贡献流程。Issue 中请提�
 - 主题模式与背景材质。
 - 可复现步骤和脱敏日志。
 
-不要提交真实账号、授权码、Cookie、凭据文件、私人邮件或日程。
+不要提交真实账号、授权码、Cookie、凭据文件或私人日程。

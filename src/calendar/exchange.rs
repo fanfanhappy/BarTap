@@ -385,7 +385,7 @@ mod tests {
         node(AIR, 0x1d, "", vec![node(CAL, 0x28, "test-uid", vec![]), node(CAL, 0x26, "会议<&>\n第二行", vec![]),
             node(CAL, 0x27, "20261103T020000Z", vec![]), node(CAL, 0x12, "20261103T030000Z", vec![])])
     }
-    fn parsed(item: &Node) -> Vec<crate::mail::Meeting> {
+    fn parsed(item: &Node) -> Vec<crate::meeting::Meeting> {
         let ics = event_ics(item, "fallback").unwrap();
         let xml = format!("<calendar-data>{}</calendar-data>", ics.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;"));
         super::super::events_in_range(&xml, date("20261101T000000Z").unwrap(), date("20261201T000000Z").unwrap()).unwrap()

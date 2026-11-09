@@ -1,5 +1,5 @@
 //! 岛内日程：左侧月历，右侧按时间排列邮件邀请与工作日程。
-use crate::{app::{App, Cmd, Env, CALENDAR_PAGE}, calendar, mail, paint::{self,Card,H}, theme::{self,W}};
+use crate::{app::{App, Cmd, Env, CALENDAR_PAGE}, calendar, meeting, paint::{self,Card,H}, theme::{self,W}};
 use chrono::{Datelike, NaiveDate};
 use eframe::egui::{self,Color32};
 
@@ -7,7 +7,7 @@ pub(crate) struct State {
     pub month: NaiveDate,
     pub day: NaiveDate,
     pub loaded: Option<NaiveDate>,
-    pub events: Vec<mail::Meeting>,
+    pub events: Vec<meeting::Meeting>,
     pub loading: bool,
     pub error: String,
     pub focus: Option<String>,
@@ -23,29 +23,29 @@ impl Default for State {
     }
 }
 
-fn event_day(event:&mail::Meeting)->Option<NaiveDate> {
+fn event_day(event:&meeting::Meeting)->Option<NaiveDate> {
     chrono::DateTime::from_timestamp(event.start,0).map(|at|at.with_timezone(&chrono::Local).date_naive())
 }
 
-fn event_days(event:&mail::Meeting)->Option<(NaiveDate,NaiveDate)> {
+fn event_days(event:&meeting::Meeting)->Option<(NaiveDate,NaiveDate)> {
     let start=event_day(event)?;
     let last=event.end.and_then(|end|chrono::DateTime::from_timestamp(end-1,0)).map(|at|at.with_timezone(&chrono::Local).date_naive()).unwrap_or(start);
     Some((start,last))
 }
 
-fn occurs_on(event:&mail::Meeting,day:NaiveDate)->bool {
+fn occurs_on(event:&meeting::Meeting,day:NaiveDate)->bool {
     let Some((start,last))=event_days(event) else{return false;};
     start<=day && day<=last
 }
 
 #[derive(Clone,Copy,PartialEq,Eq)]
-pub(crate) enum Source<'a> { Calendar(Option<calendar::Provider>), Mail(&'a str), Local }
-impl Source<'_> {
+pub(crate) enum Source { Calendar(Option<calendar::Provider>), Local }
+impl Source {
     fn icon_key(self)->&'static str {
-        match self {Self::Calendar(Some(provider))=>provider.key(),Self::Calendar(None)=>"calendar",Self::Mail(_)=>"mail",Self::Local=>"local"}
+        match self {Self::Calendar(Some(provider))=>provider.key(),Self::Calendar(None)=>"calendar",Self::Local=>"local"}
     }
     fn label(self)->String {
-        match self {Self::Calendar(provider)=>provider.map(|p|p.label()).unwrap_or("工作日历").to_string(),Self::Mail(account)=>format!("邮件 · {account}"),Self::Local=>"本机日程".into()}
+        match self {Self::Calendar(provider)=>provider.map(|p|p.label()).unwrap_or("工作日历").to_string(),Self::Local=>"本机日程".into()}
     }
     fn color(self)->Color32 {
         match self {
@@ -53,13 +53,12 @@ impl Source<'_> {
             Self::Calendar(Some(calendar::Provider::DingTalk))=>Color32::from_rgb(77,192,242),
             Self::Calendar(Some(calendar::Provider::ICloud))=>Color32::from_rgb(255,105,97),
             Self::Calendar(_)=>Color32::from_rgb(112,162,255),
-            Self::Mail(_)=>Color32::from_rgb(199,168,255),
             Self::Local=>Color32::from_rgb(105,208,157),
         }
     }
 }
 
-pub(crate) fn marker_colors(sources:&[Source<'_>])->Vec<Color32> {
+pub(crate) fn marker_colors(sources:&[Source])->Vec<Color32> {
     let mut colors=Vec::new();
     for source in sources {
         let color=source.color();
@@ -69,11 +68,11 @@ pub(crate) fn marker_colors(sources:&[Source<'_>])->Vec<Color32> {
     colors
 }
 
-pub(crate) struct Entry<'a> {pub event:&'a mail::Meeting,pub sources:Vec<Source<'a>>}
-fn entry_key(event:&mail::Meeting)->String {
+pub(crate) struct Entry<'a> {pub event:&'a meeting::Meeting,pub sources:Vec<Source>}
+fn entry_key(event:&meeting::Meeting)->String {
     if event.uid.is_empty(){format!("{}|{}",event.start,event.title.trim())}else{calendar::dedupe_key(event)}
 }
-pub(crate) fn has_ended(event:&mail::Meeting,now:i64)->bool {
+pub(crate) fn has_ended(event:&meeting::Meeting,now:i64)->bool {
     let end=event.end.or_else(||event.all_day.then(||event_day(event)?.succ_opt()?.and_hms_opt(0,0,0)?.and_local_timezone(chrono::Local).earliest().map(|at|at.timestamp())).flatten());
     end.unwrap_or(event.start.saturating_add(60))<=now
 }
@@ -84,12 +83,12 @@ fn calendar_now(env:&Env)->i64{
 }
 
 fn featured_index(events:&[Entry<'_>],focus:Option<&str>,now:i64)->Option<usize> {
-    let eligible=|event:&mail::Meeting|!event.all_day && !has_ended(event,now);
+    let eligible=|event:&meeting::Meeting|!event.all_day && !has_ended(event,now);
     events.iter().position(|entry|eligible(entry.event) && focus==Some(entry_key(entry.event).as_str()))
         .or_else(||events.iter().enumerate().filter(|(_,entry)|eligible(entry.event)).min_by_key(|(_,entry)|(entry.event.start>now,entry.event.start)).map(|(i,_)|i))
 }
 
-fn event_status(event:&mail::Meeting,now:i64,today:NaiveDate)->String {
+fn event_status(event:&meeting::Meeting,now:i64,today:NaiveDate)->String {
     let left=event.start-now;
     if left>0 {
         if event_day(event)!=Some(today){"待开始".into()}
@@ -100,7 +99,7 @@ fn event_status(event:&mail::Meeting,now:i64,today:NaiveDate)->String {
     else if event.end.is_some(){"进行中".into()}
     else{"已开始".into()}
 }
-pub(crate) fn source_icon(c:&Card,source:Source<'_>,x:f32,y:f32,size:f32) {
+pub(crate) fn source_icon(c:&Card,source:Source,x:f32,y:f32,size:f32) {
     let rect=c.rect(x,y,size,size);
     let png:Option<&[u8]>=match source {
         Source::Calendar(Some(calendar::Provider::DingTalk))=>Some(include_bytes!("../assets/calendar/dingtalk.png")),
@@ -127,7 +126,6 @@ pub(crate) fn source_icon(c:&Card,source:Source<'_>,x:f32,y:f32,size:f32) {
     }
     let icon=match source {
         Source::Calendar(Some(calendar::Provider::WeCom))=>egui::include_image!("../assets/calendar/wecom.svg"),
-        Source::Mail(_)=>egui::include_image!("../assets/calendar/mail.svg"),
         Source::Calendar(Some(calendar::Provider::Feishu))=>egui::include_image!("../assets/calendar/feishu.svg"),
         _=>egui::include_image!("../assets/settings-icons/calendar-days.svg"),
     };
@@ -145,7 +143,7 @@ mod tests {
     use super::*;
     #[test]
     fn featured_calendar_excludes_ended_and_all_day_events() {
-        let make=|uid:&str,start,end,all_day|mail::Meeting{uid:uid.into(),title:uid.into(),start,end:Some(end),all_day,at:String::new()};
+        let make=|uid:&str,start,end,all_day|meeting::Meeting{uid:uid.into(),title:uid.into(),start,end:Some(end),all_day,at:String::new()};
         let events=[make("全天",0,86400,true),make("已结束",10,20,false),make("下一场",200,300,false),make("进行中",80,150,false)];
         let entries:Vec<_>=events.iter().map(|event|Entry{event,sources:vec![Source::Local]}).collect();
         assert_eq!(featured_index(&entries,None,100),Some(3));
@@ -156,7 +154,7 @@ mod tests {
     }
     #[test]
     fn source_svg_rasterizes_at_notification_size_and_screen_scale() {
-        for source in [Source::Mail("test"),Source::Calendar(Some(calendar::Provider::Feishu)),Source::Calendar(Some(calendar::Provider::WeCom))] {
+        for source in [Source::Local,Source::Calendar(Some(calendar::Provider::Feishu)),Source::Calendar(Some(calendar::Provider::WeCom))] {
         let ctx=egui::Context::default();egui_extras::install_image_loaders(&ctx);
         let raw=egui::RawInput{viewports:std::iter::once((egui::ViewportId::ROOT,egui::ViewportInfo{native_pixels_per_point:Some(2.0),..Default::default()})).collect(),..Default::default()};
         let output=ctx.run(raw,|ctx|{
@@ -179,9 +177,9 @@ mod tests {
     #[test]
     fn date_markers_merge_repeat_sources_and_show_at_most_three_colors() {
         let feishu=Source::Calendar(Some(calendar::Provider::Feishu));
-        let mail=Source::Mail("work@example.com");
-        assert_eq!(marker_colors(&[feishu,mail,Source::Mail("other@example.com"),feishu]),vec![feishu.color(),mail.color()]);
-        let colors=marker_colors(&[feishu,Source::Calendar(Some(calendar::Provider::DingTalk)),Source::Calendar(Some(calendar::Provider::WeCom)),mail]);
+        let local=Source::Local;
+        assert_eq!(marker_colors(&[feishu,local,feishu]),vec![feishu.color(),local.color()]);
+        let colors=marker_colors(&[feishu,Source::Calendar(Some(calendar::Provider::DingTalk)),Source::Calendar(Some(calendar::Provider::WeCom)),local]);
         assert_eq!(colors.len(),3);
         assert!(colors.iter().enumerate().all(|(i,color)|!colors[..i].contains(color)));
     }
@@ -196,17 +194,7 @@ impl App {
         events.len().saturating_sub(usize::from(featured)+4)
     }
 
-    pub(crate) fn mail_event_ignored(&self,event:&mail::Meeting)->bool {
-        self.settings.ignored_mail_events.contains(&calendar::dedupe_key(event))
-    }
-    pub(crate) fn toggle_mail_event(&mut self,event:&mail::Meeting) {
-        let key=calendar::dedupe_key(event);
-        if self.mail_event_ignored(event){self.settings.ignored_mail_events.retain(|k|k!=&key);}
-        else{self.settings.ignored_mail_events.push(key);}
-        self.settings.save();
-    }
-
-    pub fn open_calendar(&mut self, meeting:Option<mail::Meeting>) {
+    pub fn open_calendar(&mut self, meeting:Option<meeting::Meeting>) {
         if let Some(meeting)=meeting {
             if let Some(day)=event_day(&meeting){self.select_calendar_day(day);}
             self.calendar.view.show_ended=has_ended(&meeting,chrono::Local::now().timestamp());
@@ -237,7 +225,7 @@ impl App {
         self.pending.push(Cmd::CalendarMonth(view.month));
     }
 
-    pub(crate) fn calendar_work_events(&self, month:Option<NaiveDate>)->Vec<(&mail::Meeting,Option<calendar::Provider>)> {
+    pub(crate) fn calendar_work_events(&self, month:Option<NaiveDate>)->Vec<(&meeting::Meeting,Option<calendar::Provider>)> {
         if self.calendar.feeds.is_empty() {
             let events=if month.is_some() && self.calendar.view.loaded==month {&self.calendar.view.events}else{&self.calendar.events};
             return events.iter().map(|event|(event,self.calendar.config.as_ref().map(|cfg|cfg.provider))).collect();
@@ -250,11 +238,10 @@ impl App {
 
     pub(crate) fn calendar_entries(&self, day:NaiveDate)->Vec<Entry<'_>> {
         let work=self.calendar_work_events(Some(calendar::month_start(day))).into_iter().map(|(event,provider)|(event,Source::Calendar(provider)));
-        let mail=self.mail.recent.iter().filter_map(|item|item.meeting.as_ref().filter(|event|!self.mail_event_ignored(event)).map(|event|(event,Source::Mail(item.account.as_str()))));
         let mut events:Vec<Entry<'_>>=vec![];
         let mut seen=std::collections::HashMap::<String,usize>::new();
         let local=self.calendar.local.iter().map(|entry|(&entry.event,Source::Local));
-        for (event,source) in work.chain(mail).chain(local).filter(|(event,_)|occurs_on(event,day)) {
+        for (event,source) in work.chain(local).filter(|(event,_)|occurs_on(event,day)) {
             let key=entry_key(event);
             if let Some(&index)=seen.get(&key) {
                 let entry=&mut events[index];
@@ -294,11 +281,10 @@ impl App {
         }
         for (i,label) in ["一","二","三","四","五","六","日"].iter().enumerate(){c.centered_text(34.0+i as f32*17.5,98.0,label,9.0,W::Regular,muted,H::Center);}
         let work=self.calendar_work_events(Some(self.calendar.view.month)).into_iter().map(|(event,provider)|(event,Source::Calendar(provider)));
-        let mail=self.mail.recent.iter().filter_map(|item|item.meeting.as_ref().filter(|event|!self.mail_event_ignored(event)).map(|event|(event,Source::Mail(item.account.as_str()))));
         let grid=calendar::month_grid(self.calendar.view.month);
-        let mut dots:std::collections::HashMap<NaiveDate,Vec<Source<'_>>>=std::collections::HashMap::new();
+        let mut dots:std::collections::HashMap<NaiveDate,Vec<Source>>=std::collections::HashMap::new();
         let local=self.calendar.local.iter().map(|entry|(&entry.event,Source::Local));
-        for (event,source) in work.chain(mail).chain(local) {
+        for (event,source) in work.chain(local) {
             let Some((start,last))=event_days(event) else{continue;};
             if last<grid[0] || start>grid[41]{continue;}
             for date in grid.iter().filter(|date|start<=**date && **date<=last) {
@@ -355,7 +341,7 @@ impl App {
             c.centered_text(248.0,44.0,&format!("{} 已结束 {ended_count}",if show_ended{"-"}else{"+"}),8.0,W::Regular,muted,H::Left);
             if c.hit(242.0,34.0,76.0,18.0,"calendar-toggle-ended").clicked(){toggle_ended=true;}
         }
-        let mut clicked=None;let mut ignored=None;let mut edit_local=None;
+        let mut clicked=None;let mut edit_local=None;
         let featured=featured_index.and_then(|i|events.get(i)).into_iter().map(|entry|(entry,true));
         let remaining=events.iter().enumerate().filter(|(index,_)|Some(*index)!=featured_index).map(|(_,entry)|(entry,false)).skip(first).take(4);
         for (i,(entry,featured)) in featured.chain(remaining).enumerate() {
@@ -387,18 +373,12 @@ impl App {
                 source_icon(c,*source,x,cy-icon_size/2.0,icon_size);
                 x+=icon_size+if featured{5.0}else{2.0};
             }
-            let can_ignore=entry.sources.iter().any(|source|matches!(source,Source::Mail(_)));
             let is_local=entry.sources.contains(&Source::Local);
-            let title_right=if can_ignore || is_local{352.0}else{371.0};
+            let title_right=if is_local{352.0}else{371.0};
             c.centered_text(x+2.0,cy,&c.fit(&event.title,size,W::Semibold,title_right-x-2.0),size,W::Semibold,if has_ended(event,now){muted}else{theme::WHITE},H::Left);
             if is_local {
                 c.centered_text(365.0,cy,"编辑",7.5,W::Regular,accent,H::Center);
                 if c.hit(354.0,cy-8.0,23.0,16.0,("calendar-edit-local",event.uid.as_str())).clicked(){edit_local=Some(event.uid.clone());}
-            }
-            if can_ignore {
-                let button=c.hit(357.0,cy-8.0,18.0,16.0,("calendar-ignore-mail",entry_key(event))).on_hover_text("忽略此邮件日程；可在邮件详情恢复");
-                paint::close(c,366.0,cy,3.0,if button.hovered(){theme::WHITE}else{muted});
-                if button.clicked(){ignored=Some(event.clone());}
             }
             if hit.on_hover_text(format!("{}\n{}\n{}",event.title,event.at,sources)).clicked(){clicked=Some(entry_key(event));}
         }
@@ -408,7 +388,6 @@ impl App {
         if let Some(key)=clicked{self.calendar.view.focus=Some(key);}
         if let Some(uid)=edit_local{self.open_calendar_editor(Some(&uid));}
         if add_local{self.open_calendar_editor(None);}
-        if let Some(event)=ignored{self.toggle_mail_event(&event);}
-        if connect {self.settings_tab=8;self.open_settings();}
+        if connect {self.settings_tab=7;self.open_settings();}
     }
 }

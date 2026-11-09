@@ -1,6 +1,6 @@
 //! 本机日程：独立保存，不需要连接工作账号。
 use chrono::{Duration, Local, NaiveDate, NaiveTime, Timelike};
-use crate::mail::Meeting;
+use crate::meeting::Meeting;
 
 #[derive(Clone)]
 pub(crate) struct Entry { pub event: Meeting, pub reminder: Option<u32> }

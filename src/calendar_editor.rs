@@ -17,7 +17,7 @@ impl App {
             local_calendar::save(&entries)?;
             self.alerts.retain(|alert|!alert.meeting.as_ref().is_some_and(|(event,_)|event.uid==entry.event.uid));
             if self.calendar.local.iter().any(|old|old.event.uid==entry.event.uid && (old.event.start!=entry.event.start || old.reminder!=entry.reminder)) {
-                self.mail.fired.remove(&crate::calendar::dedupe_key(&entry.event));
+                self.calendar.fired.remove(&crate::calendar::dedupe_key(&entry.event));
             }
             self.calendar.local=entries;
             self.open_calendar(Some(entry.event));

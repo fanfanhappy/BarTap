@@ -529,7 +529,7 @@ fn report_body(provider: Provider, start: &str, end: &str) -> String {
 /// 一次拉取的结果。
 pub struct Fetched {
     pub href: String,
-    pub events: Vec<crate::mail::Meeting>,
+    pub events: Vec<crate::meeting::Meeting>,
 
 }
 
@@ -770,7 +770,7 @@ fn event_calendars(xml: &str, base: &str) -> Vec<String> {
 }
 
 /// 从 .ics 文件（苹果「日历」导出、订阅链接下载等）读出时间范围内的日程，重复日程会展开。
-pub fn events_from_ics(ics: &str, lo: chrono::DateTime<chrono::Utc>, hi: chrono::DateTime<chrono::Utc>) -> Result<Vec<crate::mail::Meeting>, String> {
+pub fn events_from_ics(ics: &str, lo: chrono::DateTime<chrono::Utc>, hi: chrono::DateTime<chrono::Utc>) -> Result<Vec<crate::meeting::Meeting>, String> {
     if !ics.contains("BEGIN:VCALENDAR") && !ics.contains("BEGIN:VEVENT") { return Err("不是有效的日历文件（.ics）".into()); }
     let escaped = ics.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
     let xml = format!("<d:response><c:calendar-data>{escaped}</c:calendar-data></d:response>");
@@ -794,11 +794,11 @@ fn calendar_data(xml: &str) -> Vec<String> {
 
 /// 把 REPORT 里的所有 `calendar-data` 喂给现有 .ics 解析器，按 `UID + DTSTART`
 /// 去重（同一个约会从多个日历返回也只留一条）。
-pub fn events_from_report(xml: &str) -> Vec<crate::mail::Meeting> {
+pub fn events_from_report(xml: &str) -> Vec<crate::meeting::Meeting> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
     for data in calendar_data(xml) {
-        for m in crate::mail::meetings_of(&data) {
+        for m in crate::meeting::meetings_of(&data) {
             if seen.insert(dedupe_key(&m)) {
                 out.push(m);
             }
@@ -807,7 +807,7 @@ pub fn events_from_report(xml: &str) -> Vec<crate::mail::Meeting> {
     out
 }
 
-pub fn dedupe_key(m: &crate::mail::Meeting) -> String {
+pub fn dedupe_key(m: &crate::meeting::Meeting) -> String {
     if m.uid.is_empty() {
         format!("t{}|{}", m.start,m.title.trim())
     } else {
@@ -833,7 +833,7 @@ fn report_status_error(xml:&str)->Option<u16>{
 }
 
 /// 服务器未展开重复日程时，在查询窗口内展开，并用单次修改或取消覆盖原实例。
-fn events_in_range(xml:&str,lo:chrono::DateTime<chrono::Utc>,hi:chrono::DateTime<chrono::Utc>)->Result<Vec<crate::mail::Meeting>,Failure>{
+fn events_in_range(xml:&str,lo:chrono::DateTime<chrono::Utc>,hi:chrono::DateTime<chrono::Utc>)->Result<Vec<crate::meeting::Meeting>,Failure>{
     let mut blocks=Vec::new();
     for data in calendar_data(xml){
         let unfolded=data.replace("\r\n","\n").replace("\n ","").replace("\n\t","");
@@ -848,14 +848,14 @@ fn events_in_range(xml:&str,lo:chrono::DateTime<chrono::Utc>,hi:chrono::DateTime
         if let Some(id)=field(body,"RECURRENCE-ID"){
             if id.contains("RANGE="){return Err(Failure::text("暂不支持从某次起批量改动的重复日程"));}
             let synthetic=format!("BEGIN:VEVENT\n{}\nEND:VEVENT",id.replacen("RECURRENCE-ID","DTSTART",1));
-            let Some(at)=crate::mail::meetings_of(&synthetic).first().map(|m|m.start) else{return Err(Failure::text("无法解析重复日程的修改时间"));};
+            let Some(at)=crate::meeting::meetings_of(&synthetic).first().map(|m|m.start) else{return Err(Failure::text("无法解析重复日程的修改时间"));};
             overrides.insert((field(body,"UID").unwrap_or_default(),at));
         }
     }
     let mut events=Vec::new();
     for body in blocks {
         let raw=format!("BEGIN:VEVENT{body}END:VEVENT");
-        let Some(base)=crate::mail::meetings_of(&raw).into_iter().next() else{
+        let Some(base)=crate::meeting::meetings_of(&raw).into_iter().next() else{
             if field(&body,"STATUS").is_some_and(|s|s.split_once(':').is_some_and(|(_,v)|v.trim().eq_ignore_ascii_case("CANCELLED"))){continue;}
             return Err(Failure::text("服务器返回了日程，但时间或时区无法解析，未完成同步"));
         };
@@ -930,8 +930,8 @@ pub enum Event {
     /// 试连结果；`count` 是未来 24 小时的事件数，`config` 带回发现到的日历地址。
     Test { ok: bool, message: String, count: usize, config: Option<Config> },
     /// 一次成功同步。
-    Synced { config: Config, events: Vec<crate::mail::Meeting>, at: String },
-    MonthLoaded { config: Config, month: NaiveDate, result: Result<Vec<crate::mail::Meeting>, String> },
+    Synced { config: Config, events: Vec<crate::meeting::Meeting>, at: String },
+    MonthLoaded { config: Config, month: NaiveDate, result: Result<Vec<crate::meeting::Meeting>, String> },
     /// 一次失败（界面只在连续失败时显示红字）。
     Failed { config: Config, message: String },
 }
@@ -1342,8 +1342,8 @@ mod tests {
 
     #[test]
     fn quality_different_meetings_without_uid_are_not_merged() {
-        let a=crate::mail::Meeting{ all_day:false,title:"设计评审".into(),start:100,end:None,at:String::new(),uid:String::new()};
-        let b=crate::mail::Meeting{ all_day:false,title:"客户会议".into(),..a.clone()};
+        let a=crate::meeting::Meeting{ all_day:false,title:"设计评审".into(),start:100,end:None,at:String::new(),uid:String::new()};
+        let b=crate::meeting::Meeting{ all_day:false,title:"客户会议".into(),..a.clone()};
         assert_ne!(dedupe_key(&a),dedupe_key(&b));
     }
     #[test]
@@ -1650,10 +1650,10 @@ mod tests {
 
     #[test]
     fn dedupe_key_uses_uid_and_start() {
-        let a = crate::mail::Meeting { all_day:false, end:None, title: "周会".into(), start: 100, at: "01-01 09:00".into(), uid: "evt-1".into() };
-        let b = crate::mail::Meeting { all_day:false, end:None, title: "周会（日历）".into(), start: 100, at: "01-01 09:00".into(), uid: "evt-1".into() };
+        let a = crate::meeting::Meeting { all_day:false, end:None, title: "周会".into(), start: 100, at: "01-01 09:00".into(), uid: "evt-1".into() };
+        let b = crate::meeting::Meeting { all_day:false, end:None, title: "周会（日历）".into(), start: 100, at: "01-01 09:00".into(), uid: "evt-1".into() };
         assert_eq!(dedupe_key(&a), dedupe_key(&b));
-        let c = crate::mail::Meeting { all_day:false, end:None, title: "无 UID".into(), start: 100, at: "".into(), uid: String::new() };
+        let c = crate::meeting::Meeting { all_day:false, end:None, title: "无 UID".into(), start: 100, at: "".into(), uid: String::new() };
         assert_eq!(dedupe_key(&c), "t100|无 UID");
     }
 

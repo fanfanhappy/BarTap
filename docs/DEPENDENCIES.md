@@ -5,7 +5,6 @@ BarTap 的代码按 MIT 发布，BarTap 版权声明与许可全文见仓库根�
 ## 本地补丁
 
 - `vendor/eframe`：基于 0.31.1，记录当前视口，避免 Windows WGL 在同一窗口重复切换上下文。
-- `vendor/imap`：基于 2.4.1，仅关闭 `nom` 默认功能并保留 `std`，移除邮件协议解析不需要的 `lexical-core` 浮点解析依赖。
 
 ## 安全检查
 
@@ -20,4 +19,4 @@ BarTap 的代码按 MIT 发布，BarTap 版权声明与许可全文见仓库根�
 | paste 1.0.15 | [RUSTSEC-2024-0436](https://rustsec.org/advisories/RUSTSEC-2024-0436.html) | 随现有 UI 依赖使用，后续跟随上游升级 |
 | ttf-parser 0.25.1 | [RUSTSEC-2026-0192](https://rustsec.org/advisories/RUSTSEC-2026-0192.html) | 随字体栈使用，后续评估维护中的替代版本 |
 
-这两项属于维护状态提示，并非本次检查确认的可利用漏洞。公告库检查不能代替完整安全审计。`imap-proto` 还会产生 Rust 未来兼容性警告，当前编译和测试通过。
+这两项属于维护状态提示，并非本次检查确认的可利用漏洞。公告库检查不能代替完整安全审计。

@@ -9,7 +9,7 @@ use crate::bar_layout::{self as bar, Layout};
 use crate::calendar;
 use crate::glass;
 use crate::lyrics;
-use crate::mail;
+use crate::meeting;
 use crate::model;
 use crate::paint::{self, Card, H};
 use crate::shape;
@@ -49,7 +49,7 @@ fn pill_shadow(painter:&egui::Painter,rect:Rect,radius:f32,strength:f32){
         painter.rect_filled(r,radius+grow*0.8,Color32::from_black_alpha((255.0*a*strength) as u8));
     }
 }
-pub(crate) const PAGE_NAMES: [&str; 8] = ["音乐", "专注", "性能", "置物架", "待办", "邮箱", "AI 额度", "日程"];
+pub(crate) const PAGE_NAMES: [&str; 8] = ["音乐", "专注", "性能", "置物架", "待办", "", "AI 额度", "日程"];
 
 // ---------- 动效参数 ----------
 /// 悬停意图缓冲：光标停留这么久才真正展开（期间药丸轻微胀大作为反馈），防误触。
@@ -167,10 +167,6 @@ pub enum Cmd {
     SetVolume(u32),
     /// 切换系统静音。
     ToggleMute,
-    /// v0.5.5：账号清单变了，让外壳重新同步收信线程。
-    MailSync,
-    /// 测试某个邮箱的连接（授权码只在内存里传给工作线程）。
-    MailTest(mail::Account, String),
     /// v0.5.6：用临时密码试连日历，成功后才允许落盘。
     CalendarTest(calendar::Config, String),
     /// 让外壳立即同步一次日历。
@@ -449,47 +445,6 @@ pub(crate) struct LyricsState {
     pub native_rx: Option<std::sync::mpsc::Receiver<Option<lyrics::Lyrics>>>,
 }
 
-/// v0.5.5：邮件面板与设置表单的界面状态。正文只在内存里过一次，不落盘。
-#[derive(Default)]
-pub(crate) struct MailState {
-    pub privacy:crate::mail_privacy::Privacy,
-    pub accounts: Vec<mail::Account>,
-    /// 每个账号的连接状态，键是邮箱小写。
-    pub status: HashMap<String, mail::Status>,
-    /// 最近邮件，新的在前，最多 60 封。
-    pub recent: Vec<mail::Item>,
-    /// 设置页里「测试连接」的结果。
-    pub note: String,
-    pub testing: Option<String>,
-    pub form: MailForm,
-    /// 面板里点开的邮件（账号 + uid，避免两个账号 uid 撞车）。
-    pub open_uid: Option<(String, u32)>,
-    pub reading: Option<mail::Item>,
-    pub reader_focus: bool,
-    /// 已经提醒过的会议，键是 `UID + DTSTART`（邮件和日历两条来源共用）。
-    pub fired: std::collections::HashSet<String>,
-}
-
-#[derive(Default)]
-pub(crate) struct MailForm {
-    pub provider: mail::Provider,
-    pub custom: mail::CustomImap,
-    pub email: String,
-    pub password: String,
-    pub show: bool,
-}
-
-impl MailState {
-    /// 最近一封带验证码的邮件。
-    pub fn code_item(&self) -> Option<&mail::Item> {self.recent.iter().find(|m|m.code.is_some())}
-    pub fn status_of(&self, email: &str) -> mail::Status {
-        self.status
-            .get(&email.to_ascii_lowercase())
-            .cloned()
-            .unwrap_or(mail::Status::Idle)
-    }
-}
-
 /// v0.5.6：日程（CalDAV）的界面状态。密码只在表单里暂存，保存后立刻清掉。
 #[derive(Default)]
 pub(crate) struct CalendarState {
@@ -499,7 +454,9 @@ pub(crate) struct CalendarState {
     pub feeds: Vec<CalendarFeed>,
     pub config: Option<calendar::Config>,
     /// 未来 24 小时的日程（提醒也读这里）。
-    pub events: Vec<mail::Meeting>,
+    pub events: Vec<meeting::Meeting>,
+    /// 已经提醒过的会议，键是 `UID + DTSTART`。
+    pub fired: std::collections::HashSet<String>,
     pub view: crate::calendar_ui::State,
     pub connected: bool,
     pub last_sync: String,
@@ -520,7 +477,7 @@ pub(crate) struct CalendarState {
 
 pub(crate) struct CalendarFeed {
     pub config: calendar::Config,
-    pub events: Vec<mail::Meeting>,
+    pub events: Vec<meeting::Meeting>,
     pub month: crate::calendar_ui::State,
     pub connected: bool,
     pub last_sync: String,
@@ -689,7 +646,6 @@ pub struct App {
     pub(crate) bt_shown: Vec<crate::bt::Device>,
     bt_initialized: bool,
     /// v0.5.5：邮件账号、最近邮件与设置表单。
-    pub(crate) mail: MailState,
     /// v0.5.6：日历（CalDAV）配置、未来 24 小时事件与设置表单。
     pub(crate) calendar: CalendarState,
     pub(crate) quota: crate::quota_ui::State,
@@ -784,7 +740,6 @@ impl App {
             volume_a: 0.0,
             bt_shown: Vec::new(),
             bt_initialized: false,
-            mail: MailState { accounts: mail::load_accounts(), ..Default::default() },
             calendar: CalendarState::load(),
             quota: crate::quota_ui::State::load(),
             updates: Default::default(),
@@ -795,80 +750,6 @@ impl App {
     pub fn say(&mut self, msg: impl Into<String>) {
         self.toast = Some((msg.into(), self.t));
         self.toast_below = false;
-    }
-
-    pub(crate) fn code_copied(&mut self, _code:&str) {
-        self.say("验证码已复制");
-        self.toast_below = true;
-    }
-
-    pub(crate) fn mail_code_hidden(&self,item:&mail::Item)->bool {
-        self.mail.privacy.hidden(item,self.t,self.settings.mail_code_hide_seconds)
-    }
-    pub(crate) fn reveal_mail_code(&mut self,item:&mail::Item){self.mail.privacy.reveal(item,self.t);}
-    pub(crate) fn display_mail(&self,item:&mail::Item)->mail::Item {
-        let mut safe=item.clone();
-        if self.mail_code_hidden(item) {
-            if let Some(code)=&item.code {
-                safe.subject=crate::mail_privacy::mask(&safe.subject,code);
-                safe.from=crate::mail_privacy::mask(&safe.from,code);
-                safe.summary=self.mail.privacy.masked_body(item);
-                safe.links.clear(); // Avoid tooltip/URL/copy leaks while hidden.
-                if let Some(event)=&mut safe.meeting {event.title=crate::mail_privacy::mask(&event.title,code);}
-                safe.code=None;
-            }
-        }
-        safe
-    }
-
-    /// 收信服务推来的事件；历史邮件静默，新邮件进入通知队列。
-    pub fn mail_event(&mut self, ev: mail::Event) {
-        let watching=|email:&str|self.settings.mail_enabled && self.mail.accounts.iter().any(|a|a.enabled && a.email.eq_ignore_ascii_case(email));
-        match ev {
-            mail::Event::Status { account, status } => {
-                if !watching(&account){return;}
-                self.mail.status.insert(account.to_ascii_lowercase(), status);
-            }
-            mail::Event::Mail { item, new } => {
-                if !watching(&item.account){return;}
-                self.mail.privacy.observe(&item,new,self.t,chrono::Utc::now().timestamp());
-                self.mail
-                    .recent
-                    .retain(|m| !(m.account.eq_ignore_ascii_case(&item.account) && m.uid == item.uid));
-                self.mail.recent.insert(0, item);
-                self.mail.recent.truncate(60);
-                self.mail.privacy.retain(&self.mail.recent);
-                if new && self.settings.mail_enabled {
-                    let item=&self.mail.recent[0];
-                    let body=format!("{} · {}",item.from,item.subject);
-                    let body=item.code.as_ref().map(|code|crate::mail_privacy::mask(&body,code)).unwrap_or(body);
-                    self.alert("新邮件",body,5,false);
-                    self.notification_bell_at = self.t;
-                    self.notification_bell_until = self.t + 6.0;
-                }
-            }
-            mail::Event::Test { account, ok, note } => {
-                self.mail.testing = None;
-                let detail = if ok { "连接成功".to_string() } else { note };
-                let detail = if detail.chars().count() > 120 {
-                    format!("{}…", detail.chars().take(120).collect::<String>())
-                } else {
-                    detail
-                };
-                self.mail.note = format!("{account}：{detail}");
-                self.say(if ok {
-                    format!("{account} 连接成功")
-                } else {
-                    format!("{account} 连接失败")
-                });
-            }
-        }
-    }
-
-    /// 设置窗口第 8 个标签页：邮件。
-    pub fn open_mail_settings(&mut self) {
-        self.settings_tab = 7;
-        self.open_settings();
     }
 
     /// v0.5.6：日历服务推来的事件。失败不弹窗，只累计次数（连续两次才显示红字）。
@@ -1011,105 +892,6 @@ impl App {
         old
     }
 
-    /// 外壳同步收信线程时读账号清单（不含任何凭据）。
-    pub fn mail_accounts(&self) -> &[mail::Account] {
-        &self.mail.accounts
-    }
-
-    /// 账号增删或开关变化后：落盘并让外壳重新对齐收信线程。
-    pub(crate) fn mail_accounts_changed(&mut self) {
-        mail::save_accounts(&self.mail.accounts);
-        self.pending.push(Cmd::MailSync);
-    }
-
-    /// 录制/截图用的邮件样例（只在 `record` feature 下编译）。
-    ///
-    /// `BARTAP_MAIL_DEMO=1|code` 面板带验证码，`=list` 只列邮件，`=fail` 用假授权码走一次
-    /// 「测试连接失败」，方便在没有真实邮箱时验收失败路径。
-    #[cfg(feature = "record")]
-    pub fn mail_demo(&mut self) {
-        use mail::{Account, Item, Provider, Status};
-        let mode = std::env::var("BARTAP_MAIL_DEMO").unwrap_or_default();
-        self.settings_tab = 7;
-        if mode == "fail" {
-            self.mail.form.provider = Provider::Qq;
-            self.mail.form.email = "test@qq.com".into();
-            self.mail.form.password = "invalid-auth-code".into();
-            self.mail.note = "test@qq.com：正在测试连接…".into();
-            self.pending.push(Cmd::MailTest(
-                Account { custom: None, email: "test@qq.com".into(), provider: Provider::Qq, enabled: true },
-                "invalid-auth-code".into(),
-            ));
-            return;
-        }
-        self.mail.accounts = vec![
-            Account { custom: None, email: "demo@qq.com".into(), provider: Provider::Qq, enabled: false },
-            Account { custom: None, email: "demo@icloud.com".into(), provider: Provider::ICloud, enabled: false },
-        ];
-        for a in &self.mail.accounts {
-            self.mail.status.insert(a.email.clone(), Status::Ready);
-        }
-        // 会议演示：开始时间设成 10 分钟后，正好落在默认 15 分钟提前量里，
-        // 启动即触发一次「会议提醒」。
-        let mstart = chrono::Local::now().timestamp() + 600;
-        let mat = chrono::DateTime::from_timestamp(mstart, 0)
-            .map(|d| d.with_timezone(&chrono::Local).format("%m-%d %H:%M").to_string())
-            .unwrap_or_default();
-        let rows = [
-            (
-                "GitHub",
-                "[GitHub] Please verify your device",
-                "09:41",
-                Some("482913"),
-                "We noticed a sign-in attempt from a new device. Enter 482913 to finish signing in. If this wasn't you, secure your account now.",
-                None,
-            ),
-            (
-                "Apple",
-                "Your Apple ID verification code",
-                "09:38",
-                None,
-                "Your Apple ID code is 573104. Don't share it with anyone. If you didn't request it, you can ignore this message.",
-                None,
-            ),
-            (
-                "腾讯企业邮",
-                "会议邀请：周五方案评审",
-                "09:12",
-                None,
-                "本周五 14:30 在三楼会议室评审 v0.5.5 方案，请提前十分钟到场。会议邀请见附件。",
-                Some((mstart, mat)),
-            ),
-            (
-                "顺丰速运",
-                "您的快件已到达菜鸟驿站",
-                "08:57",
-                None,
-                "您的快件已到达菜鸟驿站（望京 SOHO T1 店），请凭取件码 6-3-2 在 20:00 前领取。",
-                None,
-            ),
-        ];
-        let with_code = mode != "list";
-        self.mail.recent = rows
-            .iter()
-            .enumerate()
-            .map(|(i, (from, subject, time, code, summary, meeting))| Item {
-                received_unix: None, account: "demo@qq.com".into(),
-                from: (*from).into(),
-                subject: (*subject).into(),
-                time: (*time).into(),
-                code: if with_code { (*code).map(str::to_string) } else { None },
-                summary: (*summary).into(),
-                links: Vec::new(),
-                meeting: meeting.as_ref().map(|(start, at)| mail::Meeting { all_day:false, end:None, title: "周五方案评审".into(), start: *start, at: at.clone(), uid: "demo-ics-1".into() }),
-                uid: 900 - i as u32,
-            })
-            .collect();
-        self.mail.note = "demo@qq.com：连接成功".into();
-        self.page = 5;
-        self.dots_target();
-    }
-
     /// 录制/截图用的日程样例（只在 `record` feature 下编译）。
     ///
     /// `BARTAP_CAL_DEMO=paste|fail|connected|alert`。
@@ -1119,7 +901,7 @@ impl App {
         let mode = std::env::var("BARTAP_CAL_DEMO").unwrap_or_default();
         self.calendar.form.provider = Provider::Feishu;
         self.calendar.form.username = "demo***@feishu.example".into();
-        self.settings_tab = 8;
+        self.settings_tab = 7;
         self.open_settings();
         self.settings.calendar_prompt = false;
         let later = |secs: i64| chrono::Local::now().timestamp() + secs;
@@ -1154,8 +936,8 @@ impl App {
                 let b = later(6 * 3600);
                 self.calendar.form.password = "demo-pass-123".into();
                 self.calendar.events = vec![
-                    mail::Meeting { all_day:false, end:None, title: "产品评审".into(), start: a, at: label(a), uid: "demo-cal-1".into() },
-                    mail::Meeting { all_day:false, end:None, title: "设计周会".into(), start: b, at: label(b), uid: "demo-cal-2".into() },
+                    meeting::Meeting { all_day:false, end:None, title: "产品评审".into(), start: a, at: label(a), uid: "demo-cal-1".into() },
+                    meeting::Meeting { all_day:false, end:None, title: "设计周会".into(), start: b, at: label(b), uid: "demo-cal-2".into() },
                 ];
                 self.calendar.config = Some(demo_cfg.clone());
                 self.calendar.connected = true;
@@ -1166,7 +948,7 @@ impl App {
             "alert" => {
                 let s = later(600);
                 self.calendar.events =
-                    vec![mail::Meeting { all_day:false, end:None, title: "飞书日程：产品评审".into(), start: s, at: label(s), uid: "demo-cal-alert".into() }];
+                    vec![meeting::Meeting { all_day:false, end:None, title: "飞书日程：产品评审".into(), start: s, at: label(s), uid: "demo-cal-alert".into() }];
                 self.calendar.config = Some(demo_cfg.clone());
                 self.calendar.connected = true;
                 self.calendar.last_sync = calendar::now_label();
@@ -1210,6 +992,7 @@ impl App {
     }
 
     pub fn show_page(&mut self,page:usize) {
+        if page==5 { return; }
         if !self.settings.visible_pages[page] {
             self.settings_tab=[1,2,10,5,4,7,11,8][page];
             self.open_settings();
@@ -1242,6 +1025,7 @@ impl App {
     }
 
     pub(crate) fn set_page_visible(&mut self,page:usize,visible:bool) {
+        if page==5 {self.settings.visible_pages[5]=false;return;}
         if !visible && self.settings.visible_pages.iter().filter(|enabled|**enabled).count()==1
             && self.settings.visible_pages[page] { return; }
         self.settings.visible_pages[page]=visible;
@@ -1272,7 +1056,7 @@ impl App {
 
     /// 带过渡地切到某页。`dir` > 0 表示内容从右侧进入。
     pub(crate) fn go(&mut self, page: usize, dir: f32) {
-        if page == self.page || !self.settings.visible_pages[page] { return; }
+        if page==5 || page == self.page || !self.settings.visible_pages[page] { return; }
         self.subpage=None;
         // 连点：上一段过渡还没结束时，以当前页为起点重新开始，位移速度保留。
         self.page_from = self.page;
@@ -1398,7 +1182,7 @@ impl App {
     }
 
     pub(crate) fn expanded_height(&self)->f32 {
-        if self.page==CALENDAR_PAGE {CALENDAR_H}else if self.page==5&&self.mail.open_uid.is_some(){236.0}else{PH}
+        if self.page==CALENDAR_PAGE {CALENDAR_H}else{PH}
     }
 
     // ---------------------------------------------------------------
@@ -1529,11 +1313,7 @@ impl App {
                 self.navigate_page(right);
             } else if scroll!=0.0 {
                 let cursor=env.cursor.unwrap()-self.content_origin(win).to_vec2();
-                let mail_body=self.page==5 && self.mail.open_uid.is_some()
-                    && Rect::from_min_max(Pos2::new(46.0,104.0),Pos2::new(374.0,194.0)).contains(cursor);
-                let mail_list=self.page==5 && !self.mail.accounts.is_empty() && self.mail.open_uid.is_none() && self.mail_list_bounds().contains(cursor);
-                if mail_body || mail_list {self.wheel_delta=0.0;}
-                else {
+                {
                     // 累积高精度滚轮的小幅输入；停顿或反向时丢弃上一段余量。
                     if self.t-self.wheel_at>0.18 || self.wheel_delta*scroll<0.0 {self.wheel_delta=0.0;}
                     self.wheel_at=self.t;
@@ -1668,7 +1448,6 @@ impl App {
             }else if self.t<self.notification_bell_until {
                 paint::bell(&c.scaled(20.0,14.0,1.2),20.0,14.0,theme::WHITE,paint::bell_swing(self.t-self.notification_bell_at));
                 c.circle(24.0,9.5,2.0,Color32::from_rgb(255,72,72));
-                if c.hit(6.0,0.0,28.0,30.0,"bell-mail").clicked(){self.show_page(5);}
             }
         }
         if let Some(rect)=messenger_rect {
@@ -2243,7 +2022,6 @@ impl App {
             if let Some(x)=layout.x[bar::BELL]{
                 let x=local_cx+x;paint::bell(&base.scaled(x,14.0,1.2),x,14.0,theme::WHITE,paint::bell_swing(self.t-self.notification_bell_at));
                 base.circle(x+4.0,9.5,2.0,Color32::from_rgb(255,72,72));
-                if base.hit(x-14.0,3.0,28.0,25.0,"bell-mail").clicked(){self.show_page(5);}
             }
         }
         if compact_alpha>0.004 {
@@ -2329,7 +2107,7 @@ impl App {
         let (hover,press)=c.hover_t(&settings);
         c.circle(394.0,18.0,13.0,Color32::from_white_alpha((hover*24.0) as u8));
         paint::gear(&c.scaled(394.0,18.0,0.8*(1.0-press*0.08)),394.0,18.0,paint::mix(theme::GRAY,theme::WHITE,hover));
-        if settings.clicked(){self.settings_tab=[1,2,2,5,4,7,11,8][self.page];self.open_settings();}
+        if settings.clicked(){self.settings_tab=[1,2,10,5,4,7,11,7][self.page];self.open_settings();}
         if self.subpage==Some(self.page) && self.page==1 {
             c.text(15.0,25.0,"‹",19.0,W::Bold,theme::WHITE,H::Left);
             c.text(37.0,25.0,"专注设置",size::TITLE,W::Bold,theme::WHITE,H::Left);
@@ -2369,7 +2147,7 @@ impl App {
             2 => ("性能", "", theme::WHITE),
             3 => return,
             4 => ("待办", "清单", theme::GREEN),
-            5 => ("邮箱", "", theme::CYAN),
+            5 => return,
             6 => ("AI", "额度", theme::SOFT_GREEN),
             _ => ("BarTap", "设置", theme::WHITE),
         };
@@ -2425,7 +2203,6 @@ impl App {
             2 => self.page_perf(c),
             3 => self.page_shelf(c, env, cmds),
             4 => self.page_todo(c, env, cmds),
-            5 => self.page_mail(c, env, cmds),
             6 => self.page_quota(c),
             CALENDAR_PAGE => self.page_calendar(c,env),
             _ => self.page_settings(c),
@@ -2484,7 +2261,7 @@ impl App {
         // v0.5.5 会议提醒：.ics 里的开始时间，默认提前 15 分钟（可设 5/15/30）。
         // v0.5.6 起日历（CalDAV）事件走同一套：同一场会（UID + DTSTART）只提醒一次，
         // 邮件和日历两条来源撞上了也只弹一次。
-        let lead = self.settings.mail_ics as i64 * 60;
+        let lead = 15 * 60;
         let now_ts = chrono::Local::now().timestamp();
         let mut picks = Vec::new();
         let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -2492,29 +2269,20 @@ impl App {
             let Some(at)=entry.reminder_at() else{continue;};
             let key=calendar::dedupe_key(&entry.event);
             let cutoff=if entry.event.all_day{at+60}else{entry.event.start+60};
-            if now_ts>=at && now_ts<cutoff && !self.mail.fired.contains(&key) && seen.insert(key.clone()) {
+            if now_ts>=at && now_ts<cutoff && !self.calendar.fired.contains(&key) && seen.insert(key.clone()) {
                 picks.push((key,entry.event.clone(),"本机日程".into(),CALENDAR_PAGE));
             }
         }
         for (m,provider) in self.calendar_work_events(None) {
             let left = m.start - now_ts;
             let key = calendar::dedupe_key(m);
-            if !m.all_day && left <= lead && left > -60 && !self.mail.fired.contains(&key) && seen.insert(key.clone()) {
+            if !m.all_day && left <= lead && left > -60 && !self.calendar.fired.contains(&key) && seen.insert(key.clone()) {
                 let source=provider.map(|provider|provider.label()).unwrap_or("日历");
                 picks.push((key, m.clone(), source.to_string(), CALENDAR_PAGE));
             }
         }
-        if self.settings.mail_enabled {
-            for m in self.mail.recent.iter().filter_map(|m| m.meeting.as_ref()).filter(|m|!self.mail_event_ignored(m)) {
-                let left = m.start - now_ts;
-                let key = calendar::dedupe_key(m);
-                if !m.all_day && left <= lead && left > -60 && !self.mail.fired.contains(&key) && seen.insert(key.clone()) {
-                    picks.push((key, m.clone(), "邮件邀请".to_string(), CALENDAR_PAGE));
-                }
-            }
-        }
         for (key, meeting, source, page) in picks {
-            self.mail.fired.insert(key);
+            self.calendar.fired.insert(key);
             self.meeting_alert(meeting, source, page);
         }
         // 剪贴板记录开关：关闭时同时清掉未固定的记录。
