@@ -3548,6 +3548,37 @@ fn page_order_drag_applies_on_release_and_saves() {
 }
 
 #[test]
+fn island_size_can_be_changed_by_dragging_the_corner(){
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    let mut h=H::new();
+    h.hover(Pos2::new(WIN_W/2.0,12.0),1.0);
+    for _ in 0..120 {h.frame(vec![]);}
+    assert!(h.app.open,"岛应先展开");
+    let start=h.app.settings.island_size;
+    let grip=H::local(399.0,122.0);
+    h.cursor=Some(grip);
+    h.frame(vec![egui::Event::PointerMoved(grip)]);
+    h.frame(vec![egui::Event::PointerButton{pos:grip,button:egui::PointerButton::Primary,pressed:true,modifiers:Default::default()}]);
+    for step in 1..=4 {
+        let point=grip+egui::vec2(10.0*step as f32,5.0*step as f32);
+        h.cursor=Some(point);
+        h.frame(vec![egui::Event::PointerMoved(point)]);
+    }
+    let end=grip+egui::vec2(40.0,20.0);
+    h.cursor=Some(end);
+    h.frame(vec![egui::Event::PointerButton{pos:end,button:egui::PointerButton::Primary,pressed:false,modifiers:Default::default()}]);
+    assert!(h.app.settings.island_size>start,"拖动右下角应增大岛体，实际 {} -> {}",start,h.app.settings.island_size);
+    assert_eq!(crate::model::Settings::load().island_size,h.app.settings.island_size,"松开后应保存大小");
+    h.cursor=Some(grip);
+    h.frame(vec![egui::Event::PointerMoved(grip)]);
+    for _ in 0..2 {
+        h.frame(vec![egui::Event::PointerButton{pos:grip,button:egui::PointerButton::Primary,pressed:true,modifiers:Default::default()}]);
+        h.frame(vec![egui::Event::PointerButton{pos:grip,button:egui::PointerButton::Primary,pressed:false,modifiers:Default::default()}]);
+    }
+    assert_eq!(h.app.settings.island_size,100,"双击手柄应恢复 100%");
+}
+
+#[test]
 fn settings_background_loads_and_is_persisted() {
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
     let mut h=H::new();

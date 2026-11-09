@@ -645,6 +645,9 @@ pub struct App {
     pub(crate) settings_background:Option<crate::extras::SettingsBackground>,
     pub(crate) settings_background_error:Option<String>,
     pub(crate) settings_background_attempt:Option<String>,
+    island_resize_start:Option<u32>,
+    island_resize_origin:Option<Pos2>,
+    island_resize_draft:u32,
     pub wechat_status:String,
     pub(crate) notification_apps:model::NotificationApps,
     pub(crate) subpage:Option<usize>,
@@ -762,7 +765,7 @@ impl App {
             media_anchor: (String::new(), 0.0, 0.0, false),
             media: NowPlaying::default(),
             music_artwork: None,
-            forced_open_until:0.0, settings_open:false, displays:Vec::new(), browser_at_top:false, browser_minimal_active:false, glass_tint:0.0, fluid:Default::default(), fluid_origin:Pos2::ZERO, fluid_art:None, fluid_title:String::new(), screen:None, settings_focus_requested:false, settings_tab:0, settings_background:None, settings_background_error:None, settings_background_attempt:None, wechat_status:String::new(), notification_apps:model::NotificationApps::load(), subpage:None, task_dialog:None,
+            forced_open_until:0.0, settings_open:false, displays:Vec::new(), browser_at_top:false, browser_minimal_active:false, glass_tint:0.0, fluid:Default::default(), fluid_origin:Pos2::ZERO, fluid_art:None, fluid_title:String::new(), screen:None, settings_focus_requested:false, settings_tab:0, settings_background:None, settings_background_error:None, settings_background_attempt:None, island_resize_start:None, island_resize_origin:None, island_resize_draft:100, wechat_status:String::new(), notification_apps:model::NotificationApps::load(), subpage:None, task_dialog:None,
             listener_status: "尚未连接".into(),
             notification_bell_until: 0.0, notification_bell_at: -10.0, notice: None, hud_notice: None, hud_alpha: 0.0, notice_width:Spring::new(0.0,CLOSE.0,CLOSE.1), notice_details:false, pending_messengers:Vec::new(), messenger_scroll:0.0, alerts: Default::default(), history: Default::default(), pending: vec![],
             todo_first: 0,
@@ -1716,6 +1719,7 @@ impl App {
 
         if self.task_dialog.is_some() && reveal>0.9 {self.task_editor_inputs(ui,origin,&mut cmds);}
         if self.calendar.draft.is_some() && reveal>0.9 {self.calendar_editor_inputs(ui,origin,&mut cmds);}
+        if self.open && reveal>0.85 && !self.side() {self.island_resize_handle(ui,panel);}
 
         // ---------- 输出 ----------
         let rel = |r: Rect| r.translate(-win.min.to_vec2());
@@ -2264,6 +2268,48 @@ impl App {
             self.side_bar(&c,panel.width(),panel.height(),env);
         }
         if reveal>0.004 {self.shared_header(&base.faded(reveal),base.origin.x+PW/2.0,1.0,reveal,env);}
+    }
+
+    fn island_resize_handle(&mut self, ui:&egui::Ui, panel:Rect) {
+        let center=Pos2::new(panel.right()-20.0,panel.bottom()-18.0);
+        let rect=Rect::from_center_size(center,Vec2::splat(22.0));
+        let response=ui.interact(rect,ui.id().with("island-resize"),egui::Sense::click_and_drag())
+            .on_hover_text("拖动调整大小 · 双击恢复 100%");
+        let hot=response.hovered()||response.dragged();
+        if hot {ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeNwSe);}
+        let color=if hot{theme::WHITE}else{theme::GRAY};
+        let p=ui.painter();
+        for i in 0..3 {
+            let d=3.0+i as f32*4.0;
+            p.line_segment([Pos2::new(center.x-d,center.y+6.0),Pos2::new(center.x+6.0,center.y-d)],egui::Stroke::new(1.4,color));
+        }
+        if response.drag_started() {
+            self.island_resize_start=Some(crate::model::island_size_value(self.settings.island_size));
+            self.island_resize_origin=response.interact_pointer_pos();
+            self.island_resize_draft=self.island_resize_start.unwrap_or(100);
+        }
+        if response.dragged() {
+            if let (Some(start),Some(origin))=(self.island_resize_start,self.island_resize_origin) {
+                if let Some(point)=ui.ctx().pointer_interact_pos() {
+                    let delta=point-origin;
+                    let raw=start as f32+(delta.x+delta.y)*0.45;
+                    self.island_resize_draft=crate::model::island_size_value(raw.round().clamp(crate::model::ISLAND_SIZE_MIN as f32,crate::model::ISLAND_SIZE_MAX as f32) as u32);
+                }
+            }
+        }
+        if self.island_resize_start.is_some() {
+            p.text(Pos2::new(center.x-8.0,center.y-10.0),egui::Align2::RIGHT_BOTTOM,format!("{}%",self.island_resize_draft),egui::FontId::proportional(10.0),color);
+        }
+        if response.drag_stopped() {
+            if let Some(start)=self.island_resize_start.take() {
+                if self.island_resize_draft!=start {self.settings.island_size=self.island_resize_draft;self.settings.save();}
+            }
+            self.island_resize_origin=None;
+        }
+        if response.double_clicked() {
+            self.settings.island_size=100;self.settings.save();
+            self.island_resize_start=None;self.island_resize_origin=None;self.island_resize_draft=100;
+        }
     }
 
     // ---------------------------------------------------------------

@@ -521,19 +521,6 @@ pub(crate) fn parse_due(value: &str, today: &str) -> Option<String> {
 mod tests {
     use super::*;
     #[test]
-    fn island_size_drag_commits_only_on_release(){
-        let ctx=egui::Context::default();let mut value=100;
-        let pos=egui::pos2(30.0,30.0);let end=egui::pos2(110.0,30.0);
-        let button=|pos,pressed|egui::Event::PointerButton{pos,button:egui::PointerButton::Primary,pressed,modifiers:Default::default()};
-        let frames=[vec![],vec![egui::Event::PointerMoved(pos)],vec![button(pos,true)],vec![egui::Event::PointerMoved(end)],vec![button(end,false)]];
-        for (i,events) in frames.into_iter().enumerate(){
-            let _=ctx.run(egui::RawInput{events,screen_rect:Some(Rect::from_min_size(egui::Pos2::ZERO,egui::vec2(320.0,80.0))),..Default::default()},|ctx|{
-                egui::CentralPanel::default().frame(egui::Frame::new().inner_margin(20)).show(ctx,|ui|{ui.spacing_mut().slider_width=180.0;island_size_slider(ui,&mut value);});
-            });
-            if i<4{assert_eq!(value,100);}else{assert_ne!(value,100);}
-        }
-    }
-    #[test]
     fn number_stepper_clicks_follow_steps_and_limits() {
         for (initial,step,x,expected) in [(5u32,1,127.0,6),(5,1,13.0,4),(0,1,13.0,0),(10,1,127.0,10),(9,3,127.0,10),(1,3,13.0,0)] {
             let ctx=egui::Context::default();
@@ -822,21 +809,6 @@ pub(crate) fn settings_segmented<T:PartialEq+Copy>(ui:&mut egui::Ui,value:&mut T
 /// 选项行：标签列之后紧跟控件，同一卡片里所有控件左缘对齐成一条竖线。
 pub(crate) fn settings_control_row_right(ui:&mut egui::Ui,title:&str,controls:impl FnOnce(&mut egui::Ui))->egui::Response{
     settings_control_row(ui,title,SETTINGS_LABEL_W,|ui|ui.horizontal(|ui|controls(ui)).response)
-}
-
-/// 设置项下方的说明文字。
-fn island_size_slider(ui:&mut egui::Ui,value:&mut u32)->egui::Response {
-    let id=ui.make_persistent_id("island-size-draft");
-    let mut draft=ui.data(|d|d.get_temp::<u32>(id)).unwrap_or(*value);
-    let response=ui.add(egui::Slider::new(&mut draft,crate::model::ISLAND_SIZE_MIN..=crate::model::ISLAND_SIZE_MAX)
-        .step_by(crate::model::ISLAND_SIZE_STEP as f64).suffix("%"));
-    if ui.input(|i|i.pointer.primary_down()) {
-        if response.changed(){ui.data_mut(|d|d.insert_temp(id,draft));}
-    }else{
-        *value=crate::model::island_size_value(draft);
-        ui.data_mut(|d|d.remove::<u32>(id));
-    }
-    response
 }
 
 pub(crate) fn settings_hint(ui:&mut egui::Ui,text:&str){
@@ -1243,13 +1215,7 @@ impl App {
                                 self.settings.glass_blur=blur;
                             }
                             ui.separator();
-                            settings_control_row(ui,"大小",56.0,|ui|{
-                                ui.horizontal(|ui|{
-                                    ui.spacing_mut().slider_width=180.0;
-                                    island_size_slider(ui,&mut self.settings.island_size);
-                                    if ui.add_enabled(self.settings.island_size!=100,egui::Button::new("恢复默认")).clicked(){self.settings.island_size=100;}
-                                }).response
-                            });
+                            settings_hint(ui,"展开岛后拖动右下角手柄调整大小，双击手柄恢复 100%。");
                             settings_hint(ui,"文字和图标按实际像素重新绘制，放大后依旧清晰；颜色由当前 Light / Dark 主题统一决定。");
                         });
                         settings_label(ui,"岛体显示");

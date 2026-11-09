@@ -43,6 +43,7 @@ The interface follows the **Windows 11 Fluent Design / WinUI 3 visual language**
 - **One component language**: buttons, switches, inputs, cards, menus, dialogs and custom-drawn island content share Fluent tokens.
 - **Full coverage**: settings, mail reader, update dialog, quota connection and calendar dialogs all support Light and Dark.
 - **Settings background**: choose a local PNG / JPEG / WebP image for the settings window and adjust a readability scrim.
+- **Direct resize**: expand the island and drag the bottom-right handle; double-click the handle to reset to 100%.
 - **Readability first**: no white inputs on dark surfaces and no dark menus or low-contrast text on light surfaces.
 
 | Light | Dark |
