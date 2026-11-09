@@ -653,6 +653,7 @@ pub struct App {
     pub(crate) calendar: CalendarState,
     pub(crate) quota: crate::quota_ui::State,
     pub(crate) updates: crate::updates::State,
+    pub(crate) onboarding: crate::onboarding::State,
     pub(crate) resident: bar::Motion,
     pub(crate) resident_power: (Option<u8>,bool),
 }
@@ -662,6 +663,7 @@ impl App {
         theme::load_fonts(ctx);
         egui_extras::install_image_loaders(ctx);
         let settings = model::Settings::load();
+        let onboarded = settings.onboarded;
         let system_dark = crate::settings_theme::system_dark(ctx);
         let theme = crate::settings_theme::ThemeManager::new(settings.settings_theme, system_dark);
         ctx.set_theme(egui::ThemePreference::System);
@@ -746,6 +748,7 @@ impl App {
             calendar: CalendarState::load(),
             quota: crate::quota_ui::State::load(),
             updates: Default::default(),
+            onboarding: crate::onboarding::State::new(!onboarded),
             resident: Default::default(), resident_power:(None,false),
         }
     }

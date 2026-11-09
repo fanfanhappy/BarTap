@@ -42,6 +42,7 @@ The interface follows the **Windows 11 Fluent Design / WinUI 3 visual language**
 - **Three background materials**: Solid, Glass and Fluid. Colors always come from the active theme.
 - **One component language**: buttons, switches, inputs, cards, menus, dialogs and custom-drawn island content share Fluent tokens.
 - **Full coverage**: settings, update dialog, quota connection and calendar dialogs all support Light and Dark.
+- **First-run guide**: three screens for appearance, island form and common pages instead of dropping into settings.
 - **Settings background**: choose a local PNG / JPEG / WebP image for the settings window and adjust a readability scrim.
 - **Settings sidebar icons**: unified Apple-style rounded gradient tiles with fine white line symbols.
 - **Direct resize**: expand the island and drag the bottom-right handle; double-click the handle to reset to 100%.

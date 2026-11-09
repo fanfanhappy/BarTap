@@ -229,11 +229,13 @@ pub struct Settings {
     pub settings_background: String,
     /// 背景图上的主题色遮罩百分比，越大文字越清晰。
     pub settings_background_dim: u8,
+    /// 首次使用引导是否已完成；老配置默认视为已完成。
+    pub onboarded: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Self { display_id: String::new(), skin: Skin::Solid, island_shape: IslandShape::Notch, glass_blur: true, island_size: 100, island_offset: 0, dock: Dock::Top, settings_theme: Default::default(), minimal: false, browser_minimal: false, avoid_browsers: true, avoid_apps: Vec::new(), visible_pages: [true,true,true,true,true,false,true,true], page_order: [0,1,2,3,4,5,6,7], show_battery: true, clock_12h: false, clock_period: 0, resident_order: Vec::new(), system_hud: true, bluetooth_notifications: true, read_notifications:false, wechat_notifications:false, wechat_tray_open:false, qq_only:false, notification_preview:false, notifications: true, sound: false, lyrics_enabled:true, island_lyrics:false, lyric_delay_ms:-350, hide_fullscreen: true, focus_minutes: 25, rest_minutes: 5, calendar_lead: 15, calendar_prompt: true, calendar_auto_sync: true, clipboard_history: true, settings_background: String::new(), settings_background_dim: 55 }
+        Self { display_id: String::new(), skin: Skin::Solid, island_shape: IslandShape::Notch, glass_blur: true, island_size: 100, island_offset: 0, dock: Dock::Top, settings_theme: Default::default(), minimal: false, browser_minimal: false, avoid_browsers: true, avoid_apps: Vec::new(), visible_pages: [true,true,true,true,true,false,true,true], page_order: [0,1,2,3,4,5,6,7], show_battery: true, clock_12h: false, clock_period: 0, resident_order: Vec::new(), system_hud: true, bluetooth_notifications: true, read_notifications:false, wechat_notifications:false, wechat_tray_open:false, qq_only:false, notification_preview:false, notifications: true, sound: false, lyrics_enabled:true, island_lyrics:false, lyric_delay_ms:-350, hide_fullscreen: true, focus_minutes: 25, rest_minutes: 5, calendar_lead: 15, calendar_prompt: true, calendar_auto_sync: true, clipboard_history: true, settings_background: String::new(), settings_background_dim: 55, onboarded: false }
     }
 }
 
@@ -263,8 +265,12 @@ impl Settings {
 
     pub fn load() -> Self {
         let mut s = Self::default();
-        for (k, v) in read_kv(&config_dir().join("settings.txt")) {
+        let path=config_dir().join("settings.txt");
+        let existed=path.exists();
+        let mut saw_onboarded=false;
+        for (k, v) in read_kv(&path) {
             match k.as_str() {
+                "onboarded" => {s.onboarded=v=="1"||v.eq_ignore_ascii_case("true");saw_onboarded=true;},
                 "settings_theme" => s.settings_theme=crate::settings_theme::SettingsTheme::parse(&v),
                 "settings_background" => s.settings_background = v,
                 "settings_background_dim" => s.settings_background_dim = v.parse::<u8>().unwrap_or(55).min(85),
@@ -325,6 +331,7 @@ impl Settings {
         }
         // 第 5 页（邮件）已移除，保留槽位以兼容旧配置，但永不启用。
         s.visible_pages[5]=false;
+        if existed && !saw_onboarded { s.onboarded=true; }
         if !s.visible_pages.contains(&true) { s.visible_pages[0]=true; }
         s
     }
@@ -343,6 +350,7 @@ impl Settings {
                 ("settings_theme".into(),self.settings_theme.key().into()),
                 ("settings_background".into(),self.settings_background.clone()),
                 ("settings_background_dim".into(),self.settings_background_dim.min(85).to_string()),
+                ("onboarded".into(),(self.onboarded as u8).to_string()),
                 ("minimal".into(), if self.minimal { "1".to_string() } else { "0".to_string() }),
                 ("browser_minimal".into(), (self.browser_minimal as u8).to_string()),
                 ("avoid_browsers".into(), (self.avoid_browsers as u8).to_string()),

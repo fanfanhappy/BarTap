@@ -1532,6 +1532,7 @@ impl App {
                             ui.label(egui::RichText::new("Windows 11 Fluent 桌面信息岛。").size(12.0).color(crate::settings_theme::current().text_secondary));
                             ui.horizontal_wrapped(|ui|{
                                 if ui.button("打开本地数据目录").clicked(){self.pending.push(Cmd::Open(crate::model::config_dir()));}
+                                if ui.button("重新查看引导").clicked(){self.start_onboarding();}
                                 ui.label(egui::RichText::new("设备图标：Solar Icons · 480 Design").size(11.0).color(crate::settings_theme::current().text_secondary));
                                 ui.hyperlink_to("CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/");
                             });

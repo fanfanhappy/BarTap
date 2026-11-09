@@ -3067,6 +3067,37 @@ fn page_order_drag_applies_on_release_and_saves() {
 }
 
 #[test]
+fn first_run_opens_onboarding_and_finish_persists() {
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    let mut h=H::new();
+    assert!(h.app.onboarding.open,"首次启动应打开引导");
+    assert!(!h.app.settings.onboarded);
+    h.app.onboarding.step=2;
+    h.app.finish_onboarding();
+    assert!(!h.app.onboarding.open);
+    assert!(h.app.settings.onboarded);
+    assert!(crate::model::Settings::load().onboarded,"完成引导应持久化，之后不再自动出现");
+    h.app.start_onboarding();
+    assert!(h.app.onboarding.open && h.app.onboarding.step==0 && !h.app.settings_open,"关于页可重新打开引导");
+}
+
+#[test]
+fn existing_settings_without_onboarding_marker_are_not_interrupted() {
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    let old=std::env::var_os("BARTAP_DATA_DIR");
+    let dir=std::env::temp_dir().join(format!("bartap-onboard-migrate-{}-{}",std::process::id(),rand_id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::env::set_var("BARTAP_DATA_DIR",&dir);
+    let _=std::fs::remove_file(dir.join("settings.txt"));
+    assert!(!crate::model::Settings::load().onboarded,"全新安装应显示引导");
+    std::fs::write(dir.join("settings.txt"),"settings_theme=dark\n").unwrap();
+    assert!(crate::model::Settings::load().onboarded,"老配置没有标记时不应再次弹引导");
+    std::fs::write(dir.join("settings.txt"),"onboarded=0\n").unwrap();
+    assert!(!crate::model::Settings::load().onboarded,"明确标记未完成时仍应显示");
+    if let Some(old)=old {std::env::set_var("BARTAP_DATA_DIR",old);} else {std::env::remove_var("BARTAP_DATA_DIR");}
+}
+
+#[test]
 fn performance_page_renders_core_metrics() {
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
     let mut h=H::new();

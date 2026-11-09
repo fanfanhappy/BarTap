@@ -25,6 +25,7 @@ pub mod clipboard;
 pub mod side_dock;
 mod task_picker;
 pub mod model;
+pub mod onboarding;
 pub mod perf;
 pub mod quota;
 mod quota_ui;
