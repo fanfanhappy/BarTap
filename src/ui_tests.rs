@@ -3555,7 +3555,7 @@ fn island_size_can_be_changed_by_dragging_the_corner(){
     for _ in 0..120 {h.frame(vec![]);}
     assert!(h.app.open,"岛应先展开");
     let start=h.app.settings.island_size;
-    let grip=H::local(399.0,122.0);
+    let grip=H::local(403.0,125.0);
     h.cursor=Some(grip);
     h.frame(vec![egui::Event::PointerMoved(grip)]);
     h.frame(vec![egui::Event::PointerButton{pos:grip,button:egui::PointerButton::Primary,pressed:true,modifiers:Default::default()}]);
