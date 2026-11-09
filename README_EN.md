@@ -20,7 +20,7 @@ BarTap is an always-available desktop island for Windows. Hover near the top edg
 
 The interface follows the **Windows 11 Fluent Design / WinUI 3 visual language**, implemented with Rust and egui. It follows the Windows app theme by default and supports Light, Dark and System, with every surface sharing the same Fluent design tokens.
 
-> **Current version: 1.0.4 (small update)**. The Cargo package, library and executable are `bartap` / `bartap.exe`; user data is stored in `%APPDATA%\BarTap`.
+> **Current version: 1.1.0 (small update)**. The Cargo package, library and executable are `bartap` / `bartap.exe`; user data is stored in `%APPDATA%\BarTap`.
 
 ## Features
 
@@ -28,6 +28,7 @@ The interface follows the **Windows 11 Fluent Design / WinUI 3 visual language**
 | --- | --- |
 | Music & lyrics | Windows media session playback, transport controls, seek, volume and synced lyrics |
 | Focus | Focus / break timer with a collapsed progress view and completion reminder |
+| Performance | CPU, memory, network throughput and system-drive free space; 1-second refresh with 60-second trends |
 | Tasks | One-off reminders, weekly recurrence and daily recurrence |
 | Calendar | CalDAV, Exchange ActiveSync, Feishu, DingTalk, WeCom, iCloud and `.ics` import |
 | Mail | IMAP inbox, verification-code detection and copying, full-message reader and meeting invitations |
@@ -58,12 +59,12 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full design standard.
 
 ## Download and install
 
-BarTap 1.0.4 is the current release. [BarTap Releases](https://github.com/fanfanhappy/BarTap/releases) will provide:
+BarTap 1.1.0 is the current release. [BarTap Releases](https://github.com/fanfanhappy/BarTap/releases) will provide:
 
 | File | Purpose |
 | --- | --- |
-| `BarTap-Setup-v1.0.4-x64.exe` | Installer with install location, shortcut and autostart options |
-| `BarTap-v1.0.4-windows-x64.zip` | Portable build |
+| `BarTap-Setup-v1.1.0-x64.exe` | Installer with install location, shortcut and autostart options |
+| `BarTap-v1.1.0-windows-x64.zip` | Portable build |
 | `SHA256SUMS.txt` | Download checksums |
 
 Until the installer is published, build from source with the instructions below. The current build artifact is `bartap.exe`.

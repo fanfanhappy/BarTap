@@ -20,7 +20,7 @@ BarTap 是一个常驻屏幕边缘的 Windows 桌面信息岛。鼠标靠近时�
 
 界面遵循 **Windows 11 Fluent Design / WinUI 3 视觉语言**，用 Rust 和 egui 实现。默认跟随 Windows 应用主题，支持 Light、Dark 与 System，全部界面共用同一套 Fluent Token。
 
-> **当前版本：1.0.4（小更新）**。Cargo 包名、库名和可执行文件为 `bartap` / `bartap.exe`；用户数据保存在 `%APPDATA%\BarTap`。
+> **当前版本：1.1.0（小更新）**。Cargo 包名、库名和可执行文件为 `bartap` / `bartap.exe`；用户数据保存在 `%APPDATA%\BarTap`。
 
 ## 功能
 
@@ -28,6 +28,7 @@ BarTap 是一个常驻屏幕边缘的 Windows 桌面信息岛。鼠标靠近时�
 | --- | --- |
 | 音乐与歌词 | 通过 Windows 媒体会话读取播放信息，支持播放、暂停、切歌、进度、音量与同步歌词 |
 | 专注 | 专注 / 休息计时，收起时也能查看进度，结束后提醒进入下一阶段 |
+| 性能 | CPU、内存、网络吞吐与系统盘剩余空间，1 秒刷新，60 秒趋势 |
 | 待办 | 单次提醒、每周指定日期重复、每天重复；到点提醒，下一次自动恢复 |
 | 日历 | CalDAV、Exchange ActiveSync、飞书、钉钉、企业微信、iCloud 与 `.ics` 导入，合并会议提醒 |
 | 邮件 | IMAP 收信、验证码识别与复制、正文阅读、邮件中的日历邀请 |
@@ -58,12 +59,12 @@ BarTap 是一个常驻屏幕边缘的 Windows 桌面信息岛。鼠标靠近时�
 
 ## 下载与安装
 
-BarTap 1.0.4 为当前发布版本，将在 [BarTap Releases](https://github.com/fanfanhappy/BarTap/releases) 提供：
+BarTap 1.1.0 为当前发布版本，将在 [BarTap Releases](https://github.com/fanfanhappy/BarTap/releases) 提供：
 
 | 文件 | 用途 |
 | --- | --- |
-| `BarTap-Setup-v1.0.4-x64.exe` | 安装版，可选安装位置、桌面快捷方式和开机启动 |
-| `BarTap-v1.0.4-windows-x64.zip` | 便携版，完整解压后运行 |
+| `BarTap-Setup-v1.1.0-x64.exe` | 安装版，可选安装位置、桌面快捷方式和开机启动 |
+| `BarTap-v1.1.0-windows-x64.zip` | 便携版，完整解压后运行 |
 | `SHA256SUMS.txt` | 下载校验 |
 
 安装包发布前，可先按下一节从源码构建。当前构建产物为 `bartap.exe`。
