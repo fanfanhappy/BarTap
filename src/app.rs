@@ -523,6 +523,8 @@ pub struct App {
     pub opts: Options,
     pub settings: model::Settings,
     pub(crate) theme: crate::settings_theme::ThemeManager,
+    /// 实际用于渲染的倍率；拖动时向目标倍率平滑收敛，避免 1% 台阶感。
+    scale_visual: f32,
     pub(crate) todos: model::TodoList,
     pub(crate) shelf: model::Shelf,
 
@@ -664,6 +666,7 @@ impl App {
         egui_extras::install_image_loaders(ctx);
         let settings = model::Settings::load();
         let onboarded = settings.onboarded;
+        let initial_scale = settings.island_scale();
         let system_dark = crate::settings_theme::system_dark(ctx);
         let theme = crate::settings_theme::ThemeManager::new(settings.settings_theme, system_dark);
         ctx.set_theme(egui::ThemePreference::System);
@@ -680,6 +683,7 @@ impl App {
             opts,
             settings,
             theme,
+            scale_visual: initial_scale,
             todos: model::TodoList::load(),
             shelf: model::Shelf::load(),
             w: Spring::new(bw, CLOSE.0, CLOSE.1),
@@ -1187,6 +1191,24 @@ impl App {
         (self.h.pos - bh) / (self.expanded_height() - bh)
     }
 
+    /// 主窗口渲染倍率。拖动缩放时会短暂落后于目标值，形成连续过渡。
+    pub fn viewport_scale(&self) -> f32 { self.scale_visual }
+
+    fn ease_viewport_scale(&mut self, dt: f32, ctx: &egui::Context) {
+        let target = self.settings.island_scale();
+        if (target - self.scale_visual).abs() < 0.0004 {
+            self.scale_visual = target;
+            return;
+        }
+        let k = 1.0 - (-dt.max(0.0) * 26.0).exp();
+        self.scale_visual += (target - self.scale_visual) * k.clamp(0.0, 1.0);
+        if (target - self.scale_visual).abs() < 0.0004 {
+            self.scale_visual = target;
+        } else {
+            ctx.request_repaint_after(std::time::Duration::from_millis(8));
+        }
+    }
+
     pub(crate) fn expanded_height(&self)->f32 {
         if self.page==CALENDAR_PAGE {CALENDAR_H}else{PH}
     }
@@ -1214,6 +1236,7 @@ impl App {
         self.quota_tick();
         self.system_idle=env.idle_seconds;
         self.dt = dt;
+        self.ease_viewport_scale(dt, &ctx);
         if let Some(at_top)=env.browser_at_top {self.browser_at_top=at_top;}
         self.screen=env.screen;
         if self.settings.skin.is_glass() {

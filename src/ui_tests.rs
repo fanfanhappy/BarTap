@@ -3143,6 +3143,21 @@ fn island_size_can_be_changed_by_dragging_the_corner(){
 }
 
 #[test]
+fn viewport_scale_eases_instead_of_jumping_between_percent_steps() {
+    let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
+    let mut h=H::new();
+    h.app.settings.island_size=140;
+    h.frame(vec![]);
+    h.frame(vec![]);
+    let first=h.app.viewport_scale();
+    assert!(first>1.0 && first<1.4,"第一次变化应只走一小段，实际 {first}");
+    h.frame(vec![]);
+    assert!(h.app.viewport_scale()>first,"显示倍率应连续追赶目标值");
+    for _ in 0..120 {h.frame(vec![]);}
+    assert!((h.app.viewport_scale()-1.4).abs()<0.01,"最终应落到目标倍率，实际 {}",h.app.viewport_scale());
+}
+
+#[test]
 fn settings_background_loads_and_is_persisted() {
     let _g=ENV_LOCK.lock().unwrap_or_else(|e|e.into_inner());
     let mut h=H::new();
