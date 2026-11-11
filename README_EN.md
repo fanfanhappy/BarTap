@@ -61,7 +61,7 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the full design standard.
 
 ## Download and install
 
-BarTap 2.0.0 is the current release. [BarTap Releases](https://github.com/fanfanhappy/BarTap/releases) will provide:
+BarTap 2.0.0 is the current release. [BarTap Releases](https://github.com/fanfanhappy/BarTap/releases) provides:
 
 | File | Purpose |
 | --- | --- |

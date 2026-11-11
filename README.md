@@ -61,7 +61,7 @@ BarTap 是一个常驻屏幕边缘的 Windows 桌面信息岛。鼠标靠近时�
 
 ## 下载与安装
 
-BarTap 2.0.0 为当前发布版本，将在 [BarTap Releases](https://github.com/fanfanhappy/BarTap/releases) 提供：
+BarTap 2.0.0 为当前发布版本，在 [BarTap Releases](https://github.com/fanfanhappy/BarTap/releases) 提供：
 
 | 文件 | 用途 |
 | --- | --- |
